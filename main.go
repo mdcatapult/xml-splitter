@@ -49,7 +49,6 @@ var config = func() Config {
 	flag.StringVar(&c.skip, "skip", "(<?xml)|(<!DOCTYPE)", "regex for lines that should be skipped")
 	flag.StringVar(&c.strip, "strip", "", "regex of values to trip from lines")
 	flag.Parse()
-	fmt.Println(c)
 	if len(c.in) == 0 || len(c.out) == 0 || len(c.split) == 0 {
 		flag.PrintDefaults()
 		fmt.Println()
@@ -98,30 +97,28 @@ func (s *XMLSplitter) WriteLines(lines []string, target string, suffix int) erro
 	mkerr := os.MkdirAll(fmt.Sprintf("%s/%s/", strings.TrimRight(config.out, "/"), target), 0755)
 	handleError(mkerr)
 	newFile := fmt.Sprintf("%s/%s/%d.xml", strings.TrimRight(config.out, "/"), target, suffix)
-	fmt.Println(newFile)
 	return ioutil.WriteFile(newFile, bytes, 0644)
 }
 
 func (s *XMLSplitter) GetScanner(target string) (*bufio.Scanner, error) {
-	fmt.Println("GETSCANNER")
+	var scanner *bufio.Scanner
 	if _, err := os.Stat(target); os.IsNotExist(err) {
 		return nil, errors.New(fmt.Sprintf("File '%s' not Found", target))
 	}
 	file, err := os.Open(target)
 	handleError(err)
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
 
 	if config.gzip {
 		target = strings.TrimSuffix(target, filepath.Ext(target))
 		gunzip, gerr := gzip.NewReader(file)
 		handleError(gerr)
-		reader = bufio.NewReader(gunzip)
-		defer gunzip.Close()
+
+		scanner = bufio.NewScanner(bufio.NewReader(gunzip))
+	} else {
+		scanner = bufio.NewScanner(file)
 	}
 
-	return bufio.NewScanner(reader), nil
+	return scanner, nil
 }
 
 func (s *XMLSplitter) ProcessFile() int {
@@ -132,6 +129,7 @@ func (s *XMLSplitter) ProcessFile() int {
 	lineCntr := 0
 	fileCntr := 0
 	var lines []string
+
 	for scanner.Scan() {
 		lineCntr += 1
 		newlines := s.GetLines(scanner.Text())
