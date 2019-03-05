@@ -38,17 +38,25 @@ type XMLSplitter struct {
 	Splitter
 }
 
-// container for command line arguments
-var config = Config{
-	*flag.String("in", "", "the folder to process (glob)"),
-	*flag.String("out", "", "the folder output to"),
-	*flag.String("split", "", "The XML closing tag to split after i.e. '</Entry>'"),
-	*flag.String("ext", "xml", "file extension to process"),
-	*flag.Bool("gzip", false, "use gzip to decompress files"),
-	*flag.Int("files", 1, "number of files to process concurrently"),
-	*flag.String("skip", "(<?xml)|(<!DOCTYPE)", "regex for lines that should be skipped"),
-	*flag.String("strip", "", "regex of values to trip from lines"),
-}
+var config = func() Config {
+	c := Config{}
+	flag.StringVar(&c.in, "in", "", "the folder to process (glob)")
+	flag.StringVar(&c.out, "out", "", "the folder output to")
+	flag.StringVar(&c.split, "split", "", "The XML closing tag to split after i.e. '</Entry>'")
+	flag.StringVar(&c.ext, "ext", "xml", "file extension to process")
+	flag.BoolVar(&c.gzip, "gzip", false, "use gzip to decompress files")
+	flag.IntVar(&c.files, "files", 1, "number of files to process concurrently")
+	flag.StringVar(&c.skip, "skip", "(<?xml)|(<!DOCTYPE)", "regex for lines that should be skipped")
+	flag.StringVar(&c.strip, "strip", "", "regex of values to trip from lines")
+	flag.Parse()
+	fmt.Println(c)
+	if len(c.in) == 0 || len(c.out) == 0 || len(c.split) == 0 {
+		flag.PrintDefaults()
+		fmt.Println()
+		log.Fatal(fmt.Sprintf("Values must be provided for -in, -out & -split"))
+	}
+	return c
+}()
 
 func (s *XMLSplitter) GetLines(line string) []string {
 	var lines []string
@@ -146,15 +154,6 @@ func (s *XMLSplitter) ProcessFile() int {
 	return fileCntr
 }
 
-// loads arguments from command line
-func checkConfig() {
-	if len(config.in) == 0 || len(config.out) == 0 || len(config.split) == 0 {
-		flag.PrintDefaults()
-		fmt.Println()
-		log.Fatal(fmt.Sprintf("Values must be provided for -in, -out & -split"))
-	}
-}
-
 // Generic function to handle errors
 func handleError(err error) {
 	if err != nil {
@@ -163,10 +162,6 @@ func handleError(err error) {
 }
 
 func main() {
-
-	flag.Parse()
-	checkConfig()
-
 	path := fmt.Sprintf("%s/*.%s", strings.TrimRight(config.in, "/"), config.ext)
 	files, err := filepath.Glob(path)
 	if err != nil {
