@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"compress/gzip"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -13,27 +14,136 @@ import (
 	"strings"
 )
 
-type Config struct {
-	in    string
-	out   string
-	split string
-	ext   string
-	gzip  bool
-	files int
-	skip  string
-	strip string
+type (
+	Config struct {
+		in    string
+		out   string
+		split string
+		ext   string
+		gzip  bool
+		files int
+		skip  string
+		strip string
+	}
+	Splitter interface {
+		ProcessFile(filePath string, resolve func())
+		GetScanner(target string) (*bufio.Scanner, error)
+		GetLines(lines string) []string
+		WriteLines(lines []string, target string, suffix int) error
+	}
+)
+
+type XMLSplitter struct {
+	path string
+	Splitter
 }
 
 // container for command line arguments
 var config = Config{
 	*flag.String("in", "", "the folder to process (glob)"),
 	*flag.String("out", "", "the folder output to"),
-	*flag.String("split", "", "regex to split documents, matched expression will be written i.e. '(.*</Entry>)(.*)'"),
+	*flag.String("split", "", "The XML closing tag to split after i.e. '</Entry>'"),
 	*flag.String("ext", "xml", "file extension to process"),
 	*flag.Bool("gzip", false, "use gzip to decompress files"),
 	*flag.Int("files", 1, "number of files to process concurrently"),
 	*flag.String("skip", "(<?xml)|(<!DOCTYPE)", "regex for lines that should be skipped"),
 	*flag.String("strip", "", "regex of values to trip from lines"),
+}
+
+func (s *XMLSplitter) GetLines(line string) []string {
+	var lines []string
+	skip := regexp.MustCompile(config.skip)
+	strip := regexp.MustCompile(config.strip)
+	split := regexp.MustCompile(config.split)
+
+	if line == "" {
+		return lines
+	}
+
+	if len(skip.FindStringSubmatch(line)) > 0 {
+		return lines
+	}
+
+	if len(config.strip) > 0 {
+		line = strip.ReplaceAllString(line, "")
+	}
+
+	found := split.FindAllStringSubmatchIndex(line, -1)
+	if len(found) >= 0 {
+		previous := 0
+		for _, v := range found {
+			lines = append(lines, line[previous:v[1]])
+			lines = append(lines, "")
+			previous = v[1]
+		}
+		if len(line[previous:]) > 0 {
+			lines = append(lines, line[previous:])
+		}
+	} else {
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+func (s *XMLSplitter) WriteLines(lines []string, target string, suffix int) error {
+	bytes := []byte(strings.Join(lines, ""))
+	mkerr := os.MkdirAll(fmt.Sprintf("%s/%s/", strings.TrimRight(config.out, "/"), target), 0755)
+	handleError(mkerr)
+	newFile := fmt.Sprintf("%s/%s/%d.xml", strings.TrimRight(config.out, "/"), target, suffix)
+	fmt.Println(newFile)
+	return ioutil.WriteFile(newFile, bytes, 0644)
+}
+
+func (s *XMLSplitter) GetScanner(target string) (*bufio.Scanner, error) {
+	fmt.Println("GETSCANNER")
+	if _, err := os.Stat(target); os.IsNotExist(err) {
+		return nil, errors.New(fmt.Sprintf("File '%s' not Found", target))
+	}
+	file, err := os.Open(target)
+	handleError(err)
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+
+	if config.gzip {
+		target = strings.TrimSuffix(target, filepath.Ext(target))
+		gunzip, gerr := gzip.NewReader(file)
+		handleError(gerr)
+		reader = bufio.NewReader(gunzip)
+		defer gunzip.Close()
+	}
+
+	return bufio.NewScanner(reader), nil
+}
+
+func (s *XMLSplitter) ProcessFile() int {
+	scanner, serr := s.GetScanner(s.path)
+	handleError(serr)
+
+	target := filepath.Base(strings.TrimSuffix(s.path, filepath.Ext(s.path)))
+	lineCntr := 0
+	fileCntr := 0
+	var lines []string
+	for scanner.Scan() {
+		lineCntr += 1
+		newlines := s.GetLines(scanner.Text())
+		if len(newlines) > 1 {
+			for _, v := range newlines {
+				if v == "" {
+					werr := s.WriteLines(lines, target, fileCntr)
+					handleError(werr)
+					fileCntr += 1
+					lines = lines[:0]
+					continue
+				}
+				lines = append(lines, v)
+			}
+		} else {
+			lines = append(lines, newlines...)
+		}
+	}
+
+	return fileCntr
 }
 
 // loads arguments from command line
@@ -52,89 +162,6 @@ func handleError(err error) {
 	}
 }
 
-func addLines(line string, lines []string) []string {
-	skip := regexp.MustCompile(config.skip)
-	strip := regexp.MustCompile(config.strip)
-	split := regexp.MustCompile(config.split)
-
-	if line == "" {
-		return lines
-	}
-
-	if len(skip.FindStringSubmatch(line)) > 0 {
-		return lines
-	}
-
-	if len(config.strip) > 0 {
-		line = strip.ReplaceAllString(line, "")
-	}
-
-	found := split.FindStringSubmatch(line)
-	if len(found) >= 1 {
-		index := 0
-		if len(found) == 3 {
-			index = 1
-		}
-		lines = append(lines, found[index])
-		if len(found) == 3 {
-			lines = append(lines, found[2])
-		}
-		lines = append(lines, "")
-	} else {
-		lines = append(lines, line)
-	}
-	return lines
-}
-
-func writeLines(lines []string, target string, suffix int) error {
-	bytes := []byte(strings.Join(lines, ""))
-	mkerr := os.MkdirAll(fmt.Sprintf("%s/%s/", strings.TrimRight(config.out, "/"), target), 0755)
-	handleError(mkerr)
-	newFile := fmt.Sprintf("%s/%s/%d.xml", strings.TrimRight(config.out, "/"), target, suffix)
-	fmt.Println(newFile)
-	return ioutil.WriteFile(newFile, bytes, 0644)
-}
-
-func getScanner(target string) *bufio.Scanner {
-	file, err := os.Open(target)
-	handleError(err)
-	defer file.Close()
-
-	reader := bufio.NewReader(file)
-
-	if config.gzip {
-		target = strings.TrimSuffix(target, filepath.Ext(target))
-		gunzip, gerr := gzip.NewReader(file)
-		handleError(gerr)
-		reader = bufio.NewReader(gunzip)
-		defer gunzip.Close()
-	}
-
-	return bufio.NewScanner(reader)
-}
-
-func processFile(filePath string, resolve func()) {
-
-	target := filepath.Base(strings.TrimSuffix(filePath, filepath.Ext(filePath)))
-	scanner := getScanner(target)
-
-	lineCntr := 0
-	fileCntr := 0
-	var lines []string
-	for scanner.Scan() {
-		lineCntr += 1
-		lines = addLines(scanner.Text(), lines)
-		if lines[len(lines)-1] == "" {
-			werr := writeLines(lines, target, fileCntr)
-			handleError(werr)
-			fileCntr += 1
-			lines = lines[:0]
-		}
-	}
-
-	resolve()
-}
-
 func main() {
 
 	flag.Parse()
@@ -147,12 +174,14 @@ func main() {
 	}
 
 	fileSem := make(chan bool, config.files)
-
-	for _, filePath := range files {
+	for _, path := range files {
 		fileSem <- true
-		go processFile(filePath, func() {
+		go func() {
+			s := XMLSplitter{path: path}
+			filesCreated := s.ProcessFile()
+			fmt.Println(fmt.Sprintf("%d files generated from %s", filesCreated, path))
 			<-fileSem
-		})
+		}()
 	}
 	for i := 0; i < cap(fileSem); i++ {
 		fileSem <- true

@@ -1,34 +1,3 @@
-# Xml Splitter
-
-A small utility to help with splitting large xml files into smaller files. Utilises Regex to facilitate cleanup and splitting
-
-## Usage
-
-```bash
-xml-splitter -in in/ -out out/ -split "</Entry>" -strip "</{0,1}PMCSet>"
-
-
-Usage of ./xml-splitter:
-  -ext string
-        file extension to process (default "xml")
-  -files int
-        number of files to process concurrently (default 1)
-  -gzip
-        use gzip to decompress files
-  -in string
-        the folder to process (glob)
-  -out string
-        the folder output to
-  -skip string
-        regex for lines that should be skipped (default "(<?xml)|(<!DOCTYPE)")
-  -split string
-        The XML closing tag to split after i.e. '</Entry>'
-  -strip string
-        regex of values to strip from lines
-```
-
-## License
-
 Copyright (c) 2019, Medicines Discovery Catapult
 All rights reserved.
 
