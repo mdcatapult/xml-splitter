@@ -14,8 +14,7 @@ import (
 	"strings"
 )
 
-type (
-	Config struct {
+type Config struct {
 		in    string
 		out   string
 		split string
@@ -24,18 +23,10 @@ type (
 		files int
 		skip  string
 		strip string
-	}
-	Splitter interface {
-		ProcessFile(filePath string, resolve func())
-		GetScanner(target string) (*bufio.Scanner, error)
-		GetLines(lines string) []string
-		WriteLines(lines []string, target string, suffix int) error
-	}
-)
+}
 
 type XMLSplitter struct {
 	path string
-	Splitter
 }
 
 var config = func() Config {
