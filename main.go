@@ -23,6 +23,7 @@ type Config struct {
 		files int
 		skip  string
 		strip string
+		level int
 }
 
 type XMLSplitter struct {
@@ -30,7 +31,10 @@ type XMLSplitter struct {
 	conf Config
 }
 
-var defaultSkip = "(<?xml)|(<!DOCTYPE)"
+const (
+	defaultSkip   = "(<?xml)|(<!DOCTYPE)"
+	fileDelimiter = "LINE_DELIMITER"
+)
 
 func GetConfig() (Config, error) {
 	c := Config{}
@@ -73,7 +77,7 @@ func (s *XMLSplitter) GetLines(line string) []string {
 		previous := 0
 		for _, v := range found {
 			lines = append(lines, line[previous:v[1]])
-			lines = append(lines, "")
+			lines = append(lines, fileDelimiter)
 			previous = v[1]
 		}
 		if len(line[previous:]) > 0 {
@@ -86,7 +90,7 @@ func (s *XMLSplitter) GetLines(line string) []string {
 }
 
 func (s *XMLSplitter) WriteLines(lines []string, target string, suffix int) error {
-	bytes := []byte(strings.Join(lines, ""))
+	bytes := []byte(strings.Join(lines, "\n"))
 	mkerr := os.MkdirAll(fmt.Sprintf("%s/%s/", strings.TrimRight(s.conf.out, "/"), target), 0755)
 	handleError(mkerr)
 	newFile := fmt.Sprintf("%s/%s/%d.xml", strings.TrimRight(s.conf.out, "/"), target, suffix)
@@ -128,7 +132,7 @@ func (s *XMLSplitter) ProcessFile() int {
 		newlines := s.GetLines(scanner.Text())
 		if len(newlines) > 1 {
 			for _, v := range newlines {
-				if v == "" {
+				if v == fileDelimiter {
 					werr := s.WriteLines(lines, target, fileCntr)
 					handleError(werr)
 					fileCntr += 1
