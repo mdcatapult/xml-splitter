@@ -17,12 +17,11 @@ import (
 type Config struct {
 		in    string
 		out   string
-		split string
 		ext   string
 		gzip  bool
 		files int
-		skip  string
-		strip string
+		skip  *regexp.Regexp
+		strip *regexp.Regexp
 		level int
 }
 
@@ -32,61 +31,35 @@ type XMLSplitter struct {
 }
 
 const (
-	defaultSkip   = "(<?xml)|(<!DOCTYPE)"
-	fileDelimiter = "LINE_DELIMITER"
+	defaultSkip   = `(<\?xml)|(<!DOCTYPE)`
+	openTagRegex  = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)[\s]*([a-zA-Z]+=("[^"]*"|'[^']*')[\s]*)*>`
+	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)[\s]*([a-zA-Z]+=("[^"]*"|'[^']*')[\s]*)*\/>`
+	closeTagRegex = `<\/[\s]*([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)[\s]*>`
 )
+
+var openTag = regexp.MustCompile(openTagRegex)
+var closingTag = regexp.MustCompile(closeTagRegex)
+var emptyTag = regexp.MustCompile(emptyTagRegex)
 
 func GetConfig() (Config, error) {
 	c := Config{}
+	var skip, strip string
 	flag.StringVar(&c.in, "in", "", "the folder to process (glob)")
 	flag.StringVar(&c.out, "out", "", "the folder output to")
-	flag.StringVar(&c.split, "split", "", "The XML closing tag to split after i.e. '</Entry>'")
+	flag.IntVar(&c.level, "depth", 1, "The nesting depth at which to split the XML")
 	flag.StringVar(&c.ext, "ext", "xml", "file extension to process")
 	flag.BoolVar(&c.gzip, "gzip", false, "use gzip to decompress files")
 	flag.IntVar(&c.files, "files", 1, "number of files to process concurrently")
-	flag.StringVar(&c.skip, "skip", defaultSkip, "regex for lines that should be skipped")
-	flag.StringVar(&c.strip, "strip", "", "regex of values to trip from lines")
+	flag.StringVar(&skip, "skip", defaultSkip, "regex for lines that should be skipped")
+	flag.StringVar(&strip, "strip", "", "regex of values to trim from lines")
 	flag.Parse()
-	if len(c.in) == 0 || len(c.out) == 0 || len(c.split) == 0 {
+	if len(c.in) == 0 || len(c.out) == 0 {
 		flag.PrintDefaults()
-		return c, errors.New("values must be provided for -in, -out & -split")
+		return c, errors.New("values must be provided for -in and -out")
 	}
+	c.strip = regexp.MustCompile(strip)
+	c.skip = regexp.MustCompile(skip)
 	return c, nil
-}
-
-func (s *XMLSplitter) GetLines(line string) []string {
-	var lines []string
-	skip := regexp.MustCompile(s.conf.skip)
-	strip := regexp.MustCompile(s.conf.strip)
-	split := regexp.MustCompile(s.conf.split)
-
-	if line == "" {
-		return lines
-	}
-
-	if len(skip.FindStringSubmatch(line)) > 0 {
-		return lines
-	}
-
-	if len(s.conf.strip) > 0 {
-		line = strip.ReplaceAllString(line, "")
-	}
-
-	found := split.FindAllStringSubmatchIndex(line, -1)
-	if len(found) >= 0 {
-		previous := 0
-		for _, v := range found {
-			lines = append(lines, line[previous:v[1]])
-			lines = append(lines, fileDelimiter)
-			previous = v[1]
-		}
-		if len(line[previous:]) > 0 {
-			lines = append(lines, line[previous:])
-		}
-	} else {
-		lines = append(lines, line)
-	}
-	return lines
 }
 
 func (s *XMLSplitter) WriteLines(lines []string, target string, suffix int) error {
@@ -118,35 +91,96 @@ func (s *XMLSplitter) GetScanner(target string) (*bufio.Scanner, error) {
 	return scanner, nil
 }
 
+type TagType int
+const (
+	Opening TagType = iota
+	Closing
+	Empty
+)
+func (tt TagType) String() string {
+	return [...]string{"Opening", "Closing", "Empty"}[tt]
+}
+
+type Tag struct {
+	Type  TagType
+	Name  string
+	Depth int
+	Start int
+	End   int
+}
+
 func (s *XMLSplitter) ProcessFile() int {
 	scanner, serr := s.GetScanner(s.path)
 	handleError(serr)
 
-	target := filepath.Base(strings.TrimSuffix(s.path, filepath.Ext(s.path)))
-	lineCntr := 0
-	fileCntr := 0
-	var lines []string
+	currentDepth := 0
+	//currentTag := ""
 
 	for scanner.Scan() {
-		lineCntr += 1
-		newlines := s.GetLines(scanner.Text())
-		if len(newlines) > 1 {
-			for _, v := range newlines {
-				if v == fileDelimiter {
-					werr := s.WriteLines(lines, target, fileCntr)
-					handleError(werr)
-					fileCntr += 1
-					lines = lines[:0]
-					continue
-				}
-				lines = append(lines, v)
+		line := scanner.Text()
+
+		if line == "" {
+			continue
+		}
+
+		skipMatches := s.conf.skip.FindStringSubmatch(line)
+		if len(skipMatches) > 0 {
+			continue
+		}
+
+		if s.conf.strip.String() != "" {
+			line = s.conf.strip.ReplaceAllString(line, "")
+		}
+
+		lineStructure := make(map[int]Tag)
+
+		tags := openTag.FindAllStringSubmatchIndex(line,-1)
+		for _, tag := range tags {
+			lineStructure[tag[0]] = Tag{
+				Type:  Opening,
+				Name:  line[tag[2]:tag[3]],
+				Start: tag[0],
+				End:   tag[1],
 			}
-		} else {
-			lines = append(lines, newlines...)
+		}
+
+		tags = closingTag.FindAllStringSubmatchIndex(line, -1)
+		for _, tag := range tags {
+			lineStructure[tag[0]] = Tag{
+				Type:  Closing,
+				Name:  line[tag[2]:tag[3]],
+				Start: tag[0],
+				End:   tag[1],
+			}
+		}
+
+		tags = emptyTag.FindAllStringSubmatchIndex(line, -1)
+		for _, tag := range tags {
+			lineStructure[tag[0]] = Tag{
+				Type:  Empty,
+				Name:  line[tag[2]:tag[3]],
+				Start: tag[0],
+				End:   tag[1],
+			}
+		}
+
+		for i := 0; i < len(line); {
+			if tag, ok := lineStructure[i]; ok {
+				switch tag.Type {
+				case Opening:
+					currentDepth++
+				case Closing:
+					currentDepth--
+				case Empty:
+				default:
+				}
+				i = tag.End
+			} else {
+				i++
+			}
 		}
 	}
-
-	return fileCntr
+	return 0
 }
 
 // Generic function to handle errors
