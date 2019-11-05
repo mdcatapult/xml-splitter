@@ -9,7 +9,7 @@ func TestAddLinesWithTrailingRegex(t *testing.T) {
 
 	input := "<ArbitraryNode></ArbitraryNode></Entry><Entry>"
 
-	s := XMLSplitter{conf: Config{split: "</Entry>"}}
+	s := XMLSplitter{conf: Config{split: "</Entry>", skip: defaultSkip}}
 	result := s.GetLines(input)
 
 	if len(result) != 3 {
@@ -26,14 +26,13 @@ func TestAddLinesWithTrailingRegex(t *testing.T) {
 			t.Error(fmt.Sprintf("%s != <Entry>", result[2]))
 		}
 	}
-
 }
 
 func TestAddLinesWithTrailingRegexAndMultipleDocsInOneLine(t *testing.T) {
 
 	input := "<Id>1</Id></Entry><Entry><Id>2</Id></Entry><Entry><Id>3</Id></Entry><Entry>"
 
-	s := XMLSplitter{conf: Config{split: "</Entry>"}}
+	s := XMLSplitter{conf: Config{split: "</Entry>", skip: defaultSkip}}
 	result := s.GetLines(input)
 
 	if len(result) != 7 {

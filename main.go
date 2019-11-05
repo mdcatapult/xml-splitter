@@ -30,6 +30,8 @@ type XMLSplitter struct {
 	conf Config
 }
 
+var defaultSkip = "(<?xml)|(<!DOCTYPE)"
+
 func GetConfig() (Config, error) {
 	c := Config{}
 	flag.StringVar(&c.in, "in", "", "the folder to process (glob)")
@@ -38,7 +40,7 @@ func GetConfig() (Config, error) {
 	flag.StringVar(&c.ext, "ext", "xml", "file extension to process")
 	flag.BoolVar(&c.gzip, "gzip", false, "use gzip to decompress files")
 	flag.IntVar(&c.files, "files", 1, "number of files to process concurrently")
-	flag.StringVar(&c.skip, "skip", "(<?xml)|(<!DOCTYPE)", "regex for lines that should be skipped")
+	flag.StringVar(&c.skip, "skip", defaultSkip, "regex for lines that should be skipped")
 	flag.StringVar(&c.strip, "strip", "", "regex of values to trip from lines")
 	flag.Parse()
 	if len(c.in) == 0 || len(c.out) == 0 || len(c.split) == 0 {
