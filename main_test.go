@@ -7,10 +7,9 @@ import (
 
 func TestAddLinesWithTrailingRegex(t *testing.T) {
 
-	config.split = "</Entry>"
-	var input = "<ArbitraryNode></ArbitraryNode></Entry><Entry>"
+	input := "<ArbitraryNode></ArbitraryNode></Entry><Entry>"
 
-	s := XMLSplitter{}
+	s := XMLSplitter{conf: Config{split: "</Entry>"}}
 	result := s.GetLines(input)
 
 	if len(result) != 3 {
@@ -32,10 +31,9 @@ func TestAddLinesWithTrailingRegex(t *testing.T) {
 
 func TestAddLinesWithTrailingRegexAndMultipleDocsInOneLine(t *testing.T) {
 
-	config.split = "</Entry>"
-	var input = "<Id>1</Id></Entry><Entry><Id>2</Id></Entry><Entry><Id>3</Id></Entry><Entry>"
+	input := "<Id>1</Id></Entry><Entry><Id>2</Id></Entry><Entry><Id>3</Id></Entry><Entry>"
 
-	s := XMLSplitter{}
+	s := XMLSplitter{conf: Config{split: "</Entry>"}}
 	result := s.GetLines(input)
 
 	if len(result) != 7 {

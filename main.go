@@ -27,9 +27,10 @@ type Config struct {
 
 type XMLSplitter struct {
 	path string
+	conf Config
 }
 
-var config = func() Config {
+func GetConfig() (Config, error) {
 	c := Config{}
 	flag.StringVar(&c.in, "in", "", "the folder to process (glob)")
 	flag.StringVar(&c.out, "out", "", "the folder output to")
@@ -42,17 +43,16 @@ var config = func() Config {
 	flag.Parse()
 	if len(c.in) == 0 || len(c.out) == 0 || len(c.split) == 0 {
 		flag.PrintDefaults()
-		fmt.Println()
-		log.Fatal(fmt.Sprintf("Values must be provided for -in, -out & -split"))
+		return c, errors.New("values must be provided for -in, -out & -split")
 	}
-	return c
-}()
+	return c, nil
+}
 
 func (s *XMLSplitter) GetLines(line string) []string {
 	var lines []string
-	skip := regexp.MustCompile(config.skip)
-	strip := regexp.MustCompile(config.strip)
-	split := regexp.MustCompile(config.split)
+	skip := regexp.MustCompile(s.conf.skip)
+	strip := regexp.MustCompile(s.conf.strip)
+	split := regexp.MustCompile(s.conf.split)
 
 	if line == "" {
 		return lines
@@ -62,7 +62,7 @@ func (s *XMLSplitter) GetLines(line string) []string {
 		return lines
 	}
 
-	if len(config.strip) > 0 {
+	if len(s.conf.strip) > 0 {
 		line = strip.ReplaceAllString(line, "")
 	}
 
@@ -85,9 +85,9 @@ func (s *XMLSplitter) GetLines(line string) []string {
 
 func (s *XMLSplitter) WriteLines(lines []string, target string, suffix int) error {
 	bytes := []byte(strings.Join(lines, ""))
-	mkerr := os.MkdirAll(fmt.Sprintf("%s/%s/", strings.TrimRight(config.out, "/"), target), 0755)
+	mkerr := os.MkdirAll(fmt.Sprintf("%s/%s/", strings.TrimRight(s.conf.out, "/"), target), 0755)
 	handleError(mkerr)
-	newFile := fmt.Sprintf("%s/%s/%d.xml", strings.TrimRight(config.out, "/"), target, suffix)
+	newFile := fmt.Sprintf("%s/%s/%d.xml", strings.TrimRight(s.conf.out, "/"), target, suffix)
 	return ioutil.WriteFile(newFile, bytes, 0644)
 }
 
@@ -99,7 +99,7 @@ func (s *XMLSplitter) GetScanner(target string) (*bufio.Scanner, error) {
 	file, err := os.Open(target)
 	handleError(err)
 
-	if config.gzip {
+	if s.conf.gzip {
 		target = strings.TrimSuffix(target, filepath.Ext(target))
 		gunzip, gerr := gzip.NewReader(file)
 		handleError(gerr)
@@ -151,6 +151,9 @@ func handleError(err error) {
 }
 
 func main() {
+	config, err := GetConfig()
+	handleError(err)
+
 	path := fmt.Sprintf("%s/*.%s", strings.TrimRight(config.in, "/"), config.ext)
 	files, err := filepath.Glob(path)
 	if err != nil {
@@ -161,7 +164,7 @@ func main() {
 	for _, path := range files {
 		fileSem <- true
 		go func() {
-			s := XMLSplitter{path: path}
+			s := XMLSplitter{path: path, conf: config}
 			filesCreated := s.ProcessFile()
 			fmt.Println(fmt.Sprintf("%d files generated from %s", filesCreated, path))
 			<-fileSem
