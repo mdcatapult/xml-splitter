@@ -1,76 +1,177 @@
 package main
 
 import (
-	"fmt"
+	"reflect"
 	"testing"
 )
 
-func TestAddLinesWithTrailingRegex(t *testing.T) {
+//func TestGetConfig(t *testing.T) {
+//	tests := []struct {
+//		name    string
+//		want    Config
+//		wantErr bool
+//	}{
+//		// TODO: Add test cases.
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			got, err := GetConfig()
+//			if (err != nil) != tt.wantErr {
+//				t.Errorf("GetConfig() error = %v, wantErr %v", err, tt.wantErr)
+//				return
+//			}
+//			if !reflect.DeepEqual(got, tt.want) {
+//				t.Errorf("GetConfig() got = %v, want %v", got, tt.want)
+//			}
+//		})
+//	}
+//}
 
-	input := "<ArbitraryNode></ArbitraryNode></Entry><Entry>"
-
-	s := XMLSplitter{conf: Config{split: "</Entry>", skip: defaultSkip}}
-	result := s.GetLines(input)
-
-	if len(result) != 3 {
-		t.Error(fmt.Sprintf("len(result) = %d, expected 3 from %s", len(result), result))
-	} else {
-		if result[1] != "" {
-			t.Error(fmt.Sprintf("expected empty string at position 1: recieved %s", result[1]))
-		}
-		if result[0] != "<ArbitraryNode></ArbitraryNode></Entry>" {
-			t.Error(fmt.Sprintf("%s != <ArbitraryNode></ArbitraryNode></Entry>", result[1]))
-		}
-
-		if result[2] != "<Entry>" {
-			t.Error(fmt.Sprintf("%s != <Entry>", result[2]))
-		}
+func TestGetLineStructure(t *testing.T) {
+	type args struct {
+		line string
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[int]Tag
+	}{
+		{
+			name: "Happy path",
+			args: args{
+				line: `<Opening><Empty />Some text in here for posterity.<OpeningWithAttributes time="1 o'clock" date="Wednesday 6th November"></ Closing>`,
+			},
+			want: map[int]Tag{
+				0: {
+					Type: Opening,
+					Name: "Opening",
+					Full: "<Opening>",
+					Start: 0,
+					End: 9,
+				},
+				9: {
+					Type: Empty,
+					Name: "Empty",
+					Full: "<Empty />",
+					Start: 9,
+					End: 18,
+				},
+				50: {
+					Type: Opening,
+					Name: "OpeningWithAttributes",
+					Full: `<OpeningWithAttributes time="1 o'clock" date="Wednesday 6th November">`,
+					Start: 50,
+					End: 120,
+				},
+				120: {
+					Type: Closing,
+					Name: "Closing",
+					Full: "</ Closing>",
+					Start: 120,
+					End: 131,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetLineStructure(tt.args.line); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetLineStructure() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
-
-func TestAddLinesWithTrailingRegexAndMultipleDocsInOneLine(t *testing.T) {
-
-	input := "<Id>1</Id></Entry><Entry><Id>2</Id></Entry><Entry><Id>3</Id></Entry><Entry>"
-
-	s := XMLSplitter{conf: Config{split: "</Entry>", skip: defaultSkip}}
-	result := s.GetLines(input)
-
-	if len(result) != 7 {
-		t.Error(fmt.Sprintf("len(result) = %d, expected 7 from %s", len(result), result))
-	} else {
-		if result[1] != "" || result[3] != "" || result[5] != "" {
-			t.Error(fmt.Sprintf("expected empty string at positions 1, 3 & 5: recieved %s", result[2]))
-		}
-
-		if result[0] != "<Id>1</Id></Entry>" {
-			t.Error(fmt.Sprintf("recieved %s, expected <Id>1</Id></Entry>", result[0]))
-		}
-		if result[2] != "<Entry><Id>2</Id></Entry>" {
-			t.Error(fmt.Sprintf("recieved %s, expected  <Entry><Id>2</Id></Entry>", result[1]))
-		}
-		if result[4] != "<Entry><Id>3</Id></Entry>" {
-			t.Error(fmt.Sprintf("recieved %s, expected  <Entry><Id>3</Id></Entry>", result[2]))
-		}
-		if result[6] != "<Entry>" {
-			t.Error(fmt.Sprintf("recieved %s, expected  <Entry><Id>3</Id></Entry>", result[2]))
-		}
-	}
-}
-
-//type MockSplitter struct {
-//	*XMLSplitter
+//
+//func TestWrite(t *testing.T) {
+//	type args struct {
+//		data string
+//		name string
+//		path []string
+//	}
+//	tests := []struct {
+//		name string
+//		args args
+//	}{
+//		// TODO: Add test cases.
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//		})
+//	}
 //}
 //
-//func (s *MockSplitter) GetScanner(target string) (*bufio.Scanner, error) {
-//	fmt.Println("MOCK SCANNER")
-//	input := "<Id>1</Id></Entry><Entry><Id>2</Id></Entry><Entry><Id>3</Id></Entry><Entry>"
-//	r := strings.NewReader(input)
-//	return bufio.NewScanner(r), nil
+//func TestXMLSplitter_GetScanner(t *testing.T) {
+//	type fields struct {
+//		path string
+//		conf Config
+//	}
+//	type args struct {
+//		target string
+//	}
+//	tests := []struct {
+//		name    string
+//		fields  fields
+//		args    args
+//		want    *bufio.Scanner
+//		wantErr bool
+//	}{
+//		// TODO: Add test cases.
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			s := &XMLSplitter{
+//				path: tt.fields.path,
+//				conf: tt.fields.conf,
+//			}
+//			got, err := s.GetScanner(tt.args.target)
+//			if (err != nil) != tt.wantErr {
+//				t.Errorf("GetScanner() error = %v, wantErr %v", err, tt.wantErr)
+//				return
+//			}
+//			if !reflect.DeepEqual(got, tt.want) {
+//				t.Errorf("GetScanner() got = %v, want %v", got, tt.want)
+//			}
+//		})
+//	}
 //}
 //
-//func TestProcessFileWithMultipleDocsInOneLine(t *testing.T) {
-//	config.split = "</Entry>"
-//	s := XMLSplitter{path: "/a/dummy/path/to/file.xml"}
-//	filesCreated := s.ProcessFile()
-//	fmt.Println(filesCreated)
+//func TestXMLSplitter_ProcessFile(t *testing.T) {
+//	type fields struct {
+//		path string
+//		conf Config
+//	}
+//	tests := []struct {
+//		name   string
+//		fields fields
+//		want   int
+//	}{
+//		// TODO: Add test cases.
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			s := &XMLSplitter{
+//				path: tt.fields.path,
+//				conf: tt.fields.conf,
+//			}
+//			if got := s.ProcessFile(); got != tt.want {
+//				t.Errorf("ProcessFile() = %v, want %v", got, tt.want)
+//			}
+//		})
+//	}
+//}
+//
+//func Test_handleError(t *testing.T) {
+//	type args struct {
+//		err error
+//	}
+//	tests := []struct {
+//		name string
+//		args args
+//	}{
+//		// TODO: Add test cases.
+//	}
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//		})
+//	}
 //}

@@ -18,14 +18,16 @@ import (
 
 const (
 	defaultSkip   = `(<\?xml)|(<!DOCTYPE)`
-	openTagRegex  = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)[\s]*([a-zA-Z]+[\s]*=[\s]*("[^"]*"|'[^']*')[\s]*)*>`
-	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)[\s]*([a-zA-Z]+[\s]*=[\s]*("[^"]*"|'[^']*')[\s]*)*\/>`
-	closeTagRegex = `<\/[\s]*([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)[\s]*>`
+	openTagRegex  = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z]+\s*=\s*("[^"]*"|'[^']*')\s*)*>`
+	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z]+\s*=\s*("[^"]*"|'[^']*')\s*)*\/>`
+	closeTagRegex = `<\/\s*([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*>`
+	whitespaceRegex = `^\s*$`
 )
 
 var openTag = regexp.MustCompile(openTagRegex)
 var closingTag = regexp.MustCompile(closeTagRegex)
 var emptyTag = regexp.MustCompile(emptyTagRegex)
+var whitespace = regexp.MustCompile(whitespaceRegex)
 
 type Config struct {
 	in    string
@@ -54,7 +56,6 @@ type Tag struct {
 	Type  TagType
 	Name  string
 	Full  string
-	Depth int
 	Start int
 	End   int
 }
@@ -114,6 +115,7 @@ func (s *XMLSplitter) ProcessFile() int {
 	dirCounter := make(map[string]int)
 	fileCounter := make(map[string]int)
 	totalFiles := 0
+	text := ""
 	var currFile *os.File
 	var writer *bufio.Writer
 
@@ -179,6 +181,11 @@ func (s *XMLSplitter) ProcessFile() int {
 
 		for i := 0; i < len(line); {
 			if tag, ok := lineStructure[i]; ok {
+				if currFile != nil && !whitespace.MatchString(text) {
+					_, err := writer.WriteString(tabs(Opening) + strings.TrimSpace(text) + "\n")
+					handleError(err)
+					text = ""
+				}
 				switch tag.Type {
 				case Opening:
 					if currDepth < s.conf.depth {
@@ -230,6 +237,9 @@ func (s *XMLSplitter) ProcessFile() int {
 				}
 				i = tag.End
 			} else {
+				if currFile != nil {
+					text += string(line[i])
+				}
 				i++
 			}
 		}
