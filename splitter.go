@@ -115,6 +115,7 @@ func (s *XMLSplitter) ProcessFile() int {
 	scanner, serr := s.GetScanner(s.path)
 	handleError(serr)
 
+	// cache is used to keep track of files/folders and xml depth so we don't overwrite files.
 	cache := processCache{
 		currentDirectory: []string{s.conf.out, filepath.Base(strings.TrimSuffix(s.path, filepath.Ext(s.path)))},
 		directoryCounter: make(map[string]int),
@@ -124,6 +125,7 @@ func (s *XMLSplitter) ProcessFile() int {
 	var currentFile *os.File
 	var writer *bufio.Writer
 
+	// Convenience function is scoped to this function since all I/O occurs here.
 	var closeFile = func () {
 		err := writer.Flush()
 		handleError(err)
@@ -154,6 +156,8 @@ func (s *XMLSplitter) ProcessFile() int {
 		for i := 0; i < len(line); {
 			if tag, ok := lineStructure[i]; ok {
 				if currentFile != nil && !whitespace.MatchString(cache.innerText) {
+
+					// We have reached a new xml tag and have recorded some text so write it to file.
 					_, err := writer.WriteString(tabs(cache.depth-s.conf.depth) + strings.TrimSpace(cache.innerText) + "\n")
 					handleError(err)
 					cache.innerText = ""
@@ -161,12 +165,19 @@ func (s *XMLSplitter) ProcessFile() int {
 				switch tag.Type {
 				case Opening:
 					if cache.depth < s.conf.depth {
+
+						// We have reached an opening tag that is below the depth we wish to split at.
+						// Make a new directory to contain more deeply nested data.
+						// Write the opening tag as an empty tag in it's own "root.xml" file inside this folder.
 						directory := cache.newDirectory(tag)
 						err := os.MkdirAll(directory, 0755)
 						handleError(err)
 						writeFile(tag.Full[:len(tag.Full)-1]+"/>", "root", cache.currentDirectory...)
 						cache.totalFiles++
 					} else if currentFile == nil {
+
+						// We have reached an opening tag that is at or above the depth at which we wish to split the file.
+						// Open a new file and write the xml header and opening tag.
 						var err error
 						file := cache.newFile(tag)
 						currentFile, err = os.Create(file)
@@ -176,28 +187,39 @@ func (s *XMLSplitter) ProcessFile() int {
 						handleError(err)
 						cache.totalFiles++
 					} else {
+
+						// We have an opening tag but aleady have a file open.
+						// We are above the split depth so we can just write to file.
 						_, err := writer.WriteString(tabs(cache.depth-s.conf.depth) + tag.Full + "\n")
 						handleError(err)
 					}
 					cache.depth++
 
 				case Closing:
-					if cache.depth > s.conf.depth+1 {
+					if cache.depth > s.conf.depth + 1 {
+
+						// If we are more than one level above the split depth we must have an open file and so can just write.
 						_, err := writer.WriteString(tabs(cache.depth-s.conf.depth-1) + tag.Full + "\n")
 						handleError(err)
-					} else if cache.depth == s.conf.depth+1 {
+					} else if cache.depth == s.conf.depth + 1 {
+
+						// We are a closing tag that is one level above the split depth therefore this tag must be the root tag of the file.
+						// Close the file after writing the tag.
 						_, err := writer.WriteString(tabs(cache.depth-s.conf.depth-1) + tag.Full + "\n")
 						handleError(err)
 						closeFile()
-					}
+					} else if tag.Name == cache.currentDirectory[len(cache.currentDirectory)-2] && cache.depth == s.conf.depth {
 
-					if tag.Name == cache.currentDirectory[len(cache.currentDirectory)-2] && cache.depth == s.conf.depth {
+						// If the current depth is equal to the split depth we need to change our representation of the current directory
+						// so that we create a new folder.
 						cache.currentDirectory = cache.currentDirectory[:len(cache.currentDirectory)-2]
 					}
 					cache.depth--
 
 				case Empty:
 					if cache.depth < s.conf.depth {
+
+						// Make a new directory as before
 						directory := cache.newDirectory(tag)
 						err := os.MkdirAll(directory, 0755)
 						handleError(err)
