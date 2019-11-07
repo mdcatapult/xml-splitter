@@ -54,7 +54,9 @@ func handleError(err error) {
 
 func main() {
 	config, err := GetConfig()
-	handleError(err)
+	if err != nil {
+		return
+	}
 
 	path := fmt.Sprintf("%s/*.xml", config.in)
 	files, err := filepath.Glob(path)
