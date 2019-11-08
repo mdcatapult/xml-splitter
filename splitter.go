@@ -15,8 +15,8 @@ import (
 
 const (
 	defaultSkip   = `(<\?xml)|(<!DOCTYPE)`
-	openTagRegex  = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z]+\s*=\s*("[^"]*"|'[^']*')\s*)*>`
-	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z]+\s*=\s*("[^"]*"|'[^']*')\s*)*\/>`
+	openTagRegex  = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*>`
+	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*\/>`
 	closeTagRegex = `<\/\s*([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*>`
 	whitespaceRegex = `^\s*$`
 )
