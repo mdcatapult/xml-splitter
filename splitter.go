@@ -203,15 +203,14 @@ func (s *XMLSplitter) ProcessFile() int {
 						handleError(err)
 					} else if cache.depth == s.conf.depth + 1 {
 
-						// We are a closing tag that is one level above the split depth therefore this tag must be the root tag of the file.
+						// Closing tag one level above the split depth => closes root tag of the file.
 						// Close the file after writing the tag.
 						_, err := writer.WriteString(tabs(cache.depth-s.conf.depth-1) + tag.Full + "\n")
 						handleError(err)
 						closeFile()
-					} else if tag.Name == cache.currentDirectory[len(cache.currentDirectory)-2] && cache.depth == s.conf.depth {
+					} else if tag.Name == cache.currentDirectory[len(cache.currentDirectory)-2] && cache.depth <= s.conf.depth {
 
-						// If the current depth is equal to the split depth we need to change our representation of the current directory
-						// so that we create a new folder.
+						// Closing tag for the containing directory.
 						cache.currentDirectory = cache.currentDirectory[:len(cache.currentDirectory)-2]
 					}
 					cache.depth--
@@ -219,7 +218,8 @@ func (s *XMLSplitter) ProcessFile() int {
 				case Empty:
 					if cache.depth < s.conf.depth {
 
-						// Make a new directory as before
+						// Empty tag below the split depth.
+						// Create a directory indicating the tag and it's index then write it to file.
 						directory := cache.newDirectory(tag)
 						err := os.MkdirAll(directory, 0755)
 						handleError(err)
@@ -227,6 +227,8 @@ func (s *XMLSplitter) ProcessFile() int {
 						cache.totalFiles++
 						cache.currentDirectory = cache.currentDirectory[:len(cache.currentDirectory)-2]
 					} else if currentFile == nil {
+
+						// Empty tag above the split depth.
 						var err error
 						file := cache.newFile(tag)
 						currentFile, err = os.Create(file)
@@ -241,8 +243,11 @@ func (s *XMLSplitter) ProcessFile() int {
 						handleError(err)
 					}
 				}
+
+				// Set i to the index of the line at the end of the tag.
 				i = tag.End
 			} else {
+				// Capture text as long as we have an open file to write to
 				if currentFile != nil {
 					cache.innerText += string(line[i])
 				}
