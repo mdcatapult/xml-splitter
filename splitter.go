@@ -155,13 +155,14 @@ func (s *XMLSplitter) ProcessFile() int {
 
 		for i := 0; i < len(line); {
 			if tag, ok := lineStructure[i]; ok {
-				if currentFile != nil && !whitespace.MatchString(cache.innerText) {
 
-					// We have reached a new xml tag and have recorded some text so write it to file.
+				// We have reached a new xml tag and have recorded some text so write it to file.
+				if currentFile != nil && !whitespace.MatchString(cache.innerText) {
 					_, err := writer.WriteString(strings.TrimSpace(cache.innerText))
 					handleError(err)
 					cache.innerText = ""
 				}
+
 				switch tag.Type {
 				case Opening:
 					if cache.depth < s.conf.depth {
@@ -247,11 +248,17 @@ func (s *XMLSplitter) ProcessFile() int {
 				// Set i to the index of the line at the end of the tag.
 				i = tag.End
 			} else {
+
 				// Capture text as long as we have an open file to write to
 				if currentFile != nil {
 					cache.innerText += string(line[i])
 				}
+
 				i++
+
+				if currentFile != nil && i == len(line) {
+					cache.innerText += "\n"
+				}
 			}
 		}
 	}
