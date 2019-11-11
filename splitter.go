@@ -19,12 +19,14 @@ const (
 	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*\/>`
 	closeTagRegex = `<\/\s*([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*>`
 	whitespaceRegex = `^\s*$`
+	incompleteTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*`
 )
 
 var openTag = regexp.MustCompile(openTagRegex)
 var closingTag = regexp.MustCompile(closeTagRegex)
 var emptyTag = regexp.MustCompile(emptyTagRegex)
 var whitespace = regexp.MustCompile(whitespaceRegex)
+var incomplete = regexp.MustCompile(incompleteTagRegex)
 
 type TagType int
 
@@ -32,6 +34,7 @@ const (
 	Opening TagType = iota
 	Closing
 	Empty
+	Incomplete
 )
 
 type Tag struct {
