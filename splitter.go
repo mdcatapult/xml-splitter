@@ -15,8 +15,8 @@ import (
 
 const (
 	defaultSkip   = `(<\?xml)|(<!DOCTYPE)`
-	openTagRegex  = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z]+\s*=\s*("[^"]*"|'[^']*')\s*)*>`
-	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z]+\s*=\s*("[^"]*"|'[^']*')\s*)*\/>`
+	openTagRegex  = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*>`
+	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*\/>`
 	closeTagRegex = `<\/\s*([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*>`
 	whitespaceRegex = `^\s*$`
 )
@@ -155,13 +155,14 @@ func (s *XMLSplitter) ProcessFile() int {
 
 		for i := 0; i < len(line); {
 			if tag, ok := lineStructure[i]; ok {
-				if currentFile != nil && !whitespace.MatchString(cache.innerText) {
 
-					// We have reached a new xml tag and have recorded some text so write it to file.
-					_, err := writer.WriteString(tabs(cache.depth-s.conf.depth) + strings.TrimSpace(cache.innerText) + "\n")
+				// We have reached a new xml tag and have recorded some text so write it to file.
+				if currentFile != nil && !whitespace.MatchString(cache.innerText) {
+					_, err := writer.WriteString(strings.TrimSpace(cache.innerText))
 					handleError(err)
 					cache.innerText = ""
 				}
+
 				switch tag.Type {
 				case Opening:
 					if cache.depth < s.conf.depth {
@@ -183,14 +184,14 @@ func (s *XMLSplitter) ProcessFile() int {
 						currentFile, err = os.Create(file)
 						handleError(err)
 						writer = bufio.NewWriter(currentFile)
-						_, err = writer.WriteString(xml.Header + tabs(cache.depth-s.conf.depth) + tag.Full + "\n")
+						_, err = writer.WriteString(xml.Header + tag.Full)
 						handleError(err)
 						cache.totalFiles++
 					} else {
 
 						// We have an opening tag but aleady have a file open.
 						// We are above the split depth so we can just write to file.
-						_, err := writer.WriteString(tabs(cache.depth-s.conf.depth) + tag.Full + "\n")
+						_, err := writer.WriteString(tag.Full)
 						handleError(err)
 					}
 					cache.depth++
@@ -199,13 +200,13 @@ func (s *XMLSplitter) ProcessFile() int {
 					if cache.depth > s.conf.depth + 1 {
 
 						// If we are more than one level above the split depth we must have an open file and so can just write.
-						_, err := writer.WriteString(tabs(cache.depth-s.conf.depth-1) + tag.Full + "\n")
+						_, err := writer.WriteString(tag.Full)
 						handleError(err)
 					} else if cache.depth == s.conf.depth + 1 {
 
 						// Closing tag one level above the split depth => closes root tag of the file.
 						// Close the file after writing the tag.
-						_, err := writer.WriteString(tabs(cache.depth-s.conf.depth-1) + tag.Full + "\n")
+						_, err := writer.WriteString(tag.Full)
 						handleError(err)
 						closeFile()
 					} else if tag.Name == cache.currentDirectory[len(cache.currentDirectory)-2] && cache.depth <= s.conf.depth {
@@ -234,12 +235,12 @@ func (s *XMLSplitter) ProcessFile() int {
 						currentFile, err = os.Create(file)
 						handleError(err)
 						writer = bufio.NewWriter(currentFile)
-						_, err = writer.WriteString(xml.Header + tabs(cache.depth-s.conf.depth) + tag.Full + "\n")
+						_, err = writer.WriteString(xml.Header + tag.Full)
 						handleError(err)
 						closeFile()
 						cache.totalFiles++
 					} else {
-						_, err := writer.WriteString(tabs(cache.depth-s.conf.depth) + tag.Full + "\n")
+						_, err := writer.WriteString(tag.Full)
 						handleError(err)
 					}
 				}
@@ -247,11 +248,17 @@ func (s *XMLSplitter) ProcessFile() int {
 				// Set i to the index of the line at the end of the tag.
 				i = tag.End
 			} else {
+
 				// Capture text as long as we have an open file to write to
 				if currentFile != nil {
 					cache.innerText += string(line[i])
 				}
+
 				i++
+
+				if currentFile != nil && i == len(line) {
+					cache.innerText += "\n"
+				}
 			}
 		}
 	}
