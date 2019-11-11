@@ -13,6 +13,7 @@ type processCache struct {
 	fileCounter      map[string]int
 	totalFiles       int
 	innerText        string
+	line             string
 }
 
 func (p *processCache) newDirectory(tag Tag) string {

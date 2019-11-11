@@ -14,19 +14,21 @@ import (
 )
 
 const (
-	defaultSkip   = `(<\?xml)|(<!DOCTYPE)`
-	openTagRegex  = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*>`
-	emptyTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*\/>`
-	closeTagRegex = `<\/\s*([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*>`
-	whitespaceRegex = `^\s*$`
-	incompleteTagRegex = `<([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\s*([a-zA-Z0-9:_.-]+\s*=\s*("[^"]*"|'[^']*')\s*)*`
+	defaultSkip       = "(<\\?xml)|(<!DOCTYPE)"
+	openTagRegex      = "<([a-zA-Z:_][a-zA-Z0-9:_.-]*)(\\s*>|\\s+([a-zA-Z0-9:_.-]+\\s*=\\s*(\"[^\"]*\"|'[^']*')\\s*)*>)"
+	emptyTagRegex     = "<([a-zA-Z:_][a-zA-Z0-9:_.-]*)(\\s*/>|\\s+([a-zA-Z0-9:_.-]+\\s*=\\s*(\"[^\"]*\"|'[^']*')\\s*)*/>)"
+	closeTagRegex     = "</\\s*([a-zA-Z:_]?[a-zA-Z0-9:_.-]*)\\s*>"
+	whitespaceRegex   = "^\\s*$"
+	openTagStartRegex = "<([a-zA-Z:_][a-zA-Z0-9:_.-]*)\\s+([a-zA-Z0-9:_.-]+\\s*=\\s*(\"[^\"]*\"|'[^']*')\\s*)*$"
+	openTagEndRegex   = "^\\s*([a-zA-Z0-9:_.-]+\\s*=\\s*(\"[^\"]*\"|'[^']*')\\s*)*>"
 )
 
-var openTag = regexp.MustCompile(openTagRegex)
+var openingTag = regexp.MustCompile(openTagRegex)
 var closingTag = regexp.MustCompile(closeTagRegex)
 var emptyTag = regexp.MustCompile(emptyTagRegex)
 var whitespace = regexp.MustCompile(whitespaceRegex)
-var incomplete = regexp.MustCompile(incompleteTagRegex)
+var openTagStart = regexp.MustCompile(openTagStartRegex)
+var openTagEnd = regexp.MustCompile(openTagEndRegex)
 
 type TagType int
 
@@ -34,7 +36,8 @@ const (
 	Opening TagType = iota
 	Closing
 	Empty
-	Incomplete
+	OpeningTagStart
+	OpeningTagEnd
 )
 
 type Tag struct {
@@ -75,7 +78,7 @@ func (s *XMLSplitter) GetLineStructure(line string) map[int]Tag {
 		}
 	}
 
-	tags := openTag.FindAllStringSubmatchIndex(line, -1)
+	tags := openingTag.FindAllStringSubmatchIndex(line, -1)
 	for _, tag := range tags {
 		lineStructure[tag[0]] = NewTag(tag, Opening)
 	}
@@ -88,6 +91,16 @@ func (s *XMLSplitter) GetLineStructure(line string) map[int]Tag {
 	tags = emptyTag.FindAllStringSubmatchIndex(line, -1)
 	for _, tag := range tags {
 		lineStructure[tag[0]] = NewTag(tag, Empty)
+	}
+
+	tags = openTagStart.FindAllStringSubmatchIndex(line, -1)
+	for _, tag :=range tags {
+		lineStructure[tag[0]] = NewTag(tag, OpeningTagStart)
+	}
+
+	tags = openTagEnd.FindAllStringSubmatchIndex(line, -1)
+	for _, tag := range tags {
+		lineStructure[tag[0]] = NewTag(tag, OpeningTagEnd)
 	}
 
 	return lineStructure
@@ -127,6 +140,7 @@ func (s *XMLSplitter) ProcessFile() int {
 	
 	var currentFile *os.File
 	var writer *bufio.Writer
+	isMultilineTag := false
 
 	// Convenience function is scoped to this function since all I/O occurs here.
 	var closeFile = func () {
@@ -147,6 +161,23 @@ func (s *XMLSplitter) ProcessFile() int {
 
 		skipMatches := s.conf.skip.FindStringSubmatch(line)
 		if len(skipMatches) > 0 {
+			continue
+		}
+
+		if openTagStart.MatchString(line) {
+			isMultilineTag = true
+			cache.line = line
+			continue
+		}
+
+		if openTagEnd.MatchString(line) {
+			line = cache.line + line
+			cache.line = ""
+			isMultilineTag = false
+		}
+
+		if isMultilineTag {
+			cache.line += " " + line
 			continue
 		}
 
