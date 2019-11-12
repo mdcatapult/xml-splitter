@@ -48,10 +48,6 @@ type Tag struct {
 	End   int
 }
 
-func tabs(depth int) string {
-	return strings.Repeat("  ", depth)
-}
-
 func writeFile(data string, name string, path ...string) {
 	file := strings.Join(path, "/")
 	file = fmt.Sprintf("%s/%s.xml", file, name)

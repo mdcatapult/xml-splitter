@@ -1,11 +1,22 @@
 package main
 
 import (
-	"reflect"
+	"github.com/stretchr/testify/suite"
+	"os"
 	"testing"
 )
 
-func TestXMLSplitter_GetLineStructure(t *testing.T) {
+type SplitterSuite struct {
+	suite.Suite
+	splitter XMLSplitter
+	file os.File
+}
+
+func TestSplitterSuite(t *testing.T) {
+	suite.Run(t, new(SplitterSuite))
+}
+
+func (s *SplitterSuite) TestGetLineStructure(t *testing.T) {
 	type args struct {
 		line string
 	}
@@ -52,37 +63,6 @@ func TestXMLSplitter_GetLineStructure(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		s := XMLSplitter{}
-		t.Run(tt.name, func(t *testing.T) {
-			if got := s.GetLineStructure(tt.args.line); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetLineStructure() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_tabs(t *testing.T) {
-	type args struct {
-		depth int
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "Happy path",
-			args: args {
-				depth: 1,
-			},
-			want: "  ",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tabs(tt.args.depth); got != tt.want {
-				t.Errorf("tabs() = %v, want %v", got, tt.want)
-			}
-		})
+		s.Assert().Equal(tt.want, s.splitter.GetLineStructure(tt.args.line))
 	}
 }
