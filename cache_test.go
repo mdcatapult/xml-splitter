@@ -130,8 +130,8 @@ func Test_processCache_newFile(t *testing.T) {
 				totalFiles:       tt.fields.totalFiles,
 				innerText:        tt.fields.innerText,
 			}
-			if got := p.newFile(tt.args.tag); got != tt.want {
-				t.Errorf("newFile() = %v, want %v", got, tt.want)
+			if got := p.openFile(tt.args.tag); got != tt.want {
+				t.Errorf("openFile() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -1,8 +1,9 @@
 package main
 
 import (
-	"bufio"
+	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -16,12 +17,26 @@ type processCache struct {
 	totalFiles       int
 	innerText        string
 	line             string
-	file             *os.File
-	writer           *bufio.Writer
+	file             bool
+	ioActions []ioAction
 }
 
-func (p *processCache) newDirectory(tag Tag) string {
-	p.currentDirectory = append(p.currentDirectory, tag.Name)
+type ioActionType int
+
+const (
+	writeFile ioActionType = iota
+	newDirectory
+)
+
+type ioAction struct {
+	actionType ioActionType
+	path string
+	text string
+	ready bool
+}
+
+func (p *processCache) newDirectory(name string) {
+	p.currentDirectory = append(p.currentDirectory, name)
 	dirKey := strings.Join(p.currentDirectory, "/")
 	if _, ok := p.directoryCounter[dirKey]; ok {
 		p.directoryCounter[dirKey]++
@@ -30,15 +45,55 @@ func (p *processCache) newDirectory(tag Tag) string {
 		p.directoryCounter[dirKey] = 0
 		p.currentDirectory = append(p.currentDirectory, "0")
 	}
-	return fmt.Sprintf("%s/%d", dirKey, p.directoryCounter[dirKey])
+	p.ioActions = append(p.ioActions, ioAction{actionType: newDirectory, path: fmt.Sprintf("%s/%d", dirKey, p.directoryCounter[dirKey]), ready: true})
 }
 
-func (p *processCache) newFile(tag Tag) string {
-	filekey := strings.Join(p.currentDirectory, "/") + "/" + tag.Name
+func (p *processCache) exitDirectory() {
+	p.currentDirectory = p.currentDirectory[:len(p.currentDirectory)-2]
+}
+
+func (p *processCache) openFile(prefix string) {
+	filekey := strings.Join(p.currentDirectory, "/") + "/" + prefix
 	if _, ok := p.fileCounter[filekey]; ok {
 		p.fileCounter[filekey]++
 	} else {
 		p.fileCounter[filekey] = 0
 	}
-	return fmt.Sprintf("%s.%d.xml", filekey, p.fileCounter[filekey])
+	p.ioActions = append(p.ioActions, ioAction{actionType: writeFile, path: fmt.Sprintf("%s.%d.xml", filekey, p.fileCounter[filekey]), text: xml.Header})
+	p.file = true
+	p.totalFiles++
+}
+
+func (p *processCache) closeFile() {
+	p.ioActions[len(p.ioActions)-1].ready = true
+	p.file = false
+}
+
+func (p *processCache) appendLine(line string) {
+	p.ioActions[len(p.ioActions)-1].text += line
+}
+
+func (p *processCache) appendFile(name, text string) {
+	p.ioActions = append(p.ioActions, ioAction{actionType: writeFile, path: strings.Join(append(p.currentDirectory, name), "/") + ".xml", ready: true, text: xml.Header + text})
+	p.totalFiles++
+}
+
+func (p *processCache) flushIO() error {
+	for len(p.ioActions) > 0 && p.ioActions[0].ready {
+		action := p.ioActions[0]
+		if action.ready {
+			switch action.actionType {
+			case writeFile:
+				if err := ioutil.WriteFile(action.path, []byte(action.text), 0644); err != nil {
+					return err
+				}
+			case newDirectory:
+				if err := os.MkdirAll(action.path, 0755); err != nil {
+					return err
+				}
+			}
+			p.ioActions = p.ioActions[1:]
+		}
+	}
+	return nil
 }
