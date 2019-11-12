@@ -61,16 +61,16 @@ type XMLSplitter struct {
 	conf Config
 }
 
-func (s *XMLSplitter) GetLineStructure(line string) map[int]Tag {
+func (s *XMLSplitter) getLineStructure(line string) map[int]Tag {
 	lineStructure := make(map[int]Tag)
 
-	var NewTag = func (v []int, t TagType) Tag {
+	var NewTag = func(v []int, t TagType) Tag {
 		return Tag{
-			Type: t,
-			Name: line[v[2]:v[3]],
-			Full: line[v[0]:v[1]],
+			Type:  t,
+			Name:  line[v[2]:v[3]],
+			Full:  line[v[0]:v[1]],
 			Start: v[0],
-			End: v[1],
+			End:   v[1],
 		}
 	}
 
@@ -90,7 +90,7 @@ func (s *XMLSplitter) GetLineStructure(line string) map[int]Tag {
 	}
 
 	tags = openTagStart.FindAllStringSubmatchIndex(line, -1)
-	for _, tag :=range tags {
+	for _, tag := range tags {
 		lineStructure[tag[0]] = NewTag(tag, OpeningTagStart)
 	}
 
@@ -102,7 +102,7 @@ func (s *XMLSplitter) GetLineStructure(line string) map[int]Tag {
 	return lineStructure
 }
 
-func (s *XMLSplitter) GetScanner(target string) (*bufio.Scanner, error) {
+func getScanner(target string, isZipped bool) (*bufio.Scanner, error) {
 	var scanner *bufio.Scanner
 	if _, err := os.Stat(target); os.IsNotExist(err) {
 		return nil, errors.New(fmt.Sprintf("File '%s' not Found", target))
@@ -110,7 +110,7 @@ func (s *XMLSplitter) GetScanner(target string) (*bufio.Scanner, error) {
 	file, err := os.Open(target)
 	handleError(err)
 
-	if s.conf.gzip {
+	if isZipped {
 		target = strings.TrimSuffix(target, filepath.Ext(target))
 		gunzip, gerr := gzip.NewReader(file)
 		handleError(gerr)
@@ -123,30 +123,16 @@ func (s *XMLSplitter) GetScanner(target string) (*bufio.Scanner, error) {
 	return scanner, nil
 }
 
-func (s *XMLSplitter) ProcessFile() int {
-	scanner, serr := s.GetScanner(s.path)
-	handleError(serr)
+func (s *XMLSplitter) ProcessFile(scanner *bufio.Scanner) int {
 
 	// cache is used to keep track of files/folders and xml depth so we don't overwrite files.
-	cache := processCache{
+	cache := &processCache{
 		currentDirectory: []string{s.conf.out, filepath.Base(strings.TrimSuffix(s.path, filepath.Ext(s.path)))},
 		directoryCounter: make(map[string]int),
 		fileCounter:      make(map[string]int),
 	}
-	
-	var currentFile *os.File
-	var writer *bufio.Writer
-	isMultilineTag := false
 
-	// Convenience function is scoped to this function since all I/O occurs here.
-	var closeFile = func () {
-		err := writer.Flush()
-		handleError(err)
-		err = currentFile.Close()
-		handleError(err)
-		currentFile = nil
-		writer = nil
-	}
+	isMultilineTag := false
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -181,116 +167,133 @@ func (s *XMLSplitter) ProcessFile() int {
 			line = s.conf.strip.ReplaceAllString(line, "")
 		}
 
-		lineStructure := s.GetLineStructure(line)
+		s.processLine(line, cache)
+	}
 
-		for i := 0; i < len(line); {
-			if tag, ok := lineStructure[i]; ok {
+	return cache.totalFiles
+}
 
-				// We have reached a new xml tag and have recorded some text so write it to file.
-				if currentFile != nil && !whitespace.MatchString(cache.innerText) {
-					_, err := writer.WriteString(strings.TrimSpace(cache.innerText))
+func (s *XMLSplitter) processLine(line string, cache *processCache) {
+
+
+	lineStructure := s.getLineStructure(line)
+	
+	// Convenience function is scoped to this function since all I/O occurs here.
+	var closeFile = func() {
+		err := cache.writer.Flush()
+		handleError(err)
+		err = cache.file.Close()
+		handleError(err)
+		cache.file = nil
+		cache.writer = nil
+	}
+
+	for i := 0; i < len(line); {
+		if tag, ok := lineStructure[i]; ok {
+
+			// We have reached a new xml tag and have recorded some text so write it to mockFile.
+			if cache.file != nil && !whitespace.MatchString(cache.innerText) {
+				_, err := cache.writer.WriteString(strings.TrimSpace(cache.innerText))
+				handleError(err)
+				cache.innerText = ""
+			}
+
+			switch tag.Type {
+			case Opening:
+				if cache.depth < s.conf.depth {
+
+					// We have reached an opening tag that is below the depth we wish to split at.
+					// Make a new directory to contain more deeply nested data.
+					// Write the opening tag as an empty tag in it's own "root.xml" mockFile inside this folder.
+					directory := cache.newDirectory(tag)
+					err := os.MkdirAll(directory, 0755)
 					handleError(err)
-					cache.innerText = ""
+					writeFile(tag.Full[:len(tag.Full)-1]+"/>", "root", cache.currentDirectory...)
+					cache.totalFiles++
+				} else if cache.file == nil {
+
+					// We have reached an opening tag that is at or above the depth at which we wish to split the mockFile.
+					// Open a new mockFile and write the xml header and opening tag.
+					var err error
+					file := cache.newFile(tag)
+					cache.file, err = os.Create(file)
+					handleError(err)
+					cache.writer = bufio.NewWriter(cache.file)
+					_, err = cache.writer.WriteString(xml.Header + tag.Full)
+					handleError(err)
+					cache.totalFiles++
+				} else {
+
+					// We have an opening tag but aleady have a mockFile open.
+					// We are above the split depth so we can just write to mockFile.
+					_, err := cache.writer.WriteString(tag.Full)
+					handleError(err)
 				}
+				cache.depth++
 
-				switch tag.Type {
-				case Opening:
-					if cache.depth < s.conf.depth {
+			case Closing:
+				if cache.depth > s.conf.depth+1 {
 
-						// We have reached an opening tag that is below the depth we wish to split at.
-						// Make a new directory to contain more deeply nested data.
-						// Write the opening tag as an empty tag in it's own "root.xml" file inside this folder.
-						directory := cache.newDirectory(tag)
-						err := os.MkdirAll(directory, 0755)
-						handleError(err)
-						writeFile(tag.Full[:len(tag.Full)-1]+"/>", "root", cache.currentDirectory...)
-						cache.totalFiles++
-					} else if currentFile == nil {
+					// If we are more than one level above the split depth we must have an open mockFile and so can just write.
+					_, err := cache.writer.WriteString(tag.Full)
+					handleError(err)
+				} else if cache.depth == s.conf.depth+1 {
 
-						// We have reached an opening tag that is at or above the depth at which we wish to split the file.
-						// Open a new file and write the xml header and opening tag.
-						var err error
-						file := cache.newFile(tag)
-						currentFile, err = os.Create(file)
-						handleError(err)
-						writer = bufio.NewWriter(currentFile)
-						_, err = writer.WriteString(xml.Header + tag.Full)
-						handleError(err)
-						cache.totalFiles++
-					} else {
+					// Closing tag one level above the split depth => closes root tag of the mockFile.
+					// Close the mockFile after writing the tag.
+					_, err := cache.writer.WriteString(tag.Full)
+					handleError(err)
+					closeFile()
+				} else if tag.Name == cache.currentDirectory[len(cache.currentDirectory)-2] && cache.depth <= s.conf.depth {
 
-						// We have an opening tag but aleady have a file open.
-						// We are above the split depth so we can just write to file.
-						_, err := writer.WriteString(tag.Full)
-						handleError(err)
-					}
-					cache.depth++
-
-				case Closing:
-					if cache.depth > s.conf.depth + 1 {
-
-						// If we are more than one level above the split depth we must have an open file and so can just write.
-						_, err := writer.WriteString(tag.Full)
-						handleError(err)
-					} else if cache.depth == s.conf.depth + 1 {
-
-						// Closing tag one level above the split depth => closes root tag of the file.
-						// Close the file after writing the tag.
-						_, err := writer.WriteString(tag.Full)
-						handleError(err)
-						closeFile()
-					} else if tag.Name == cache.currentDirectory[len(cache.currentDirectory)-2] && cache.depth <= s.conf.depth {
-
-						// Closing tag for the containing directory.
-						cache.currentDirectory = cache.currentDirectory[:len(cache.currentDirectory)-2]
-					}
-					cache.depth--
-
-				case Empty:
-					if cache.depth < s.conf.depth {
-
-						// Empty tag below the split depth.
-						// Create a directory indicating the tag and it's index then write it to file.
-						directory := cache.newDirectory(tag)
-						err := os.MkdirAll(directory, 0755)
-						handleError(err)
-						writeFile(tag.Full, "root", cache.currentDirectory...)
-						cache.totalFiles++
-						cache.currentDirectory = cache.currentDirectory[:len(cache.currentDirectory)-2]
-					} else if currentFile == nil {
-
-						// Empty tag above the split depth.
-						var err error
-						file := cache.newFile(tag)
-						currentFile, err = os.Create(file)
-						handleError(err)
-						writer = bufio.NewWriter(currentFile)
-						_, err = writer.WriteString(xml.Header + tag.Full)
-						handleError(err)
-						closeFile()
-						cache.totalFiles++
-					} else {
-						_, err := writer.WriteString(tag.Full)
-						handleError(err)
-					}
+					// Closing tag for the containing directory.
+					cache.currentDirectory = cache.currentDirectory[:len(cache.currentDirectory)-2]
 				}
+				cache.depth--
 
-				// Set i to the index of the line at the end of the tag.
-				i = tag.End
-			} else {
+			case Empty:
+				if cache.depth < s.conf.depth {
 
-				// Capture text as long as we have an open file to write to
-				if currentFile != nil {
-					cache.innerText += string(line[i])
+					// Empty tag below the split depth.
+					// Create a directory indicating the tag and it's index then write it to mockFile.
+					directory := cache.newDirectory(tag)
+					err := os.MkdirAll(directory, 0755)
+					handleError(err)
+					writeFile(tag.Full, "root", cache.currentDirectory...)
+					cache.totalFiles++
+					cache.currentDirectory = cache.currentDirectory[:len(cache.currentDirectory)-2]
+				} else if cache.file == nil {
+
+					// Empty tag above the split depth.
+					var err error
+					file := cache.newFile(tag)
+					cache.file, err = os.Create(file)
+					handleError(err)
+					cache.writer = bufio.NewWriter(cache.file)
+					_, err = cache.writer.WriteString(xml.Header + tag.Full)
+					handleError(err)
+					closeFile()
+					cache.totalFiles++
+				} else {
+					_, err := cache.writer.WriteString(tag.Full)
+					handleError(err)
 				}
+			}
 
-				i++
+			// Set i to the index of the line at the end of the tag.
+			i = tag.End
+		} else {
 
-				if currentFile != nil && i == len(line) {
-					cache.innerText += "\n"
-				}
+			// Capture text as long as we have an open mockFile to write to
+			if cache.file != nil {
+				cache.innerText += string(line[i])
+			}
+
+			i++
+
+			if cache.file != nil && i == len(line) {
+				cache.innerText += "\n"
 			}
 		}
 	}
-	return cache.totalFiles
 }

@@ -69,7 +69,9 @@ func main() {
 		fileSem <- true
 		go func() {
 			s := XMLSplitter{path: path, conf: config}
-			filesCreated := s.ProcessFile()
+			scanner, err := getScanner(s.path, s.conf.gzip)
+			handleError(err)
+			filesCreated := s.ProcessFile(scanner)
 			fmt.Println(fmt.Sprintf("%d files generated from %s", filesCreated, path))
 			<-fileSem
 		}()

@@ -22,37 +22,37 @@ func Test_processCache_newDirectory(t *testing.T) {
 	}{
 		{
 			name: "XML root",
-			fields: fields {
-				currentDirectory: []string{"output-folder","target-folder"},
+			fields: fields{
+				currentDirectory: []string{"output-folder", "target-folder"},
 				directoryCounter: make(map[string]int),
 			},
-			args: args {
+			args: args{
 				tag: Tag{Name: "xml-tag"},
 			},
 			want: "output-folder/target-folder/xml-tag/0",
 		},
 		{
 			name: "repeated tag",
-			fields: fields {
-				currentDirectory: []string{"output-folder","target-folder", "xml-tag", "0"},
+			fields: fields{
+				currentDirectory: []string{"output-folder", "target-folder", "xml-tag", "0"},
 				directoryCounter: map[string]int{
 					"output-folder/target-folder/xml-tag/0/repeated-tag": 1,
 				},
 			},
-			args: args {
+			args: args{
 				tag: Tag{Name: "repeated-tag"},
 			},
 			want: "output-folder/target-folder/xml-tag/0/repeated-tag/2",
 		},
 		{
 			name: "new-tag",
-			fields: fields {
-				currentDirectory: []string{"output-folder","target-folder", "xml-tag", "0"},
+			fields: fields{
+				currentDirectory: []string{"output-folder", "target-folder", "xml-tag", "0"},
 				directoryCounter: map[string]int{
 					"output-folder/target-folder/xml-tag/0/repeated-tag": 1,
 				},
 			},
-			args: args {
+			args: args{
 				tag: Tag{Name: "new-tag"},
 			},
 			want: "output-folder/target-folder/xml-tag/0/new-tag/0",
@@ -95,26 +95,26 @@ func Test_processCache_newFile(t *testing.T) {
 	}{
 		{
 			name: "repeated tag",
-			fields: fields {
-				currentDirectory: []string{"output-folder","target-folder", "xml-tag", "0"},
+			fields: fields{
+				currentDirectory: []string{"output-folder", "target-folder", "xml-tag", "0"},
 				fileCounter: map[string]int{
 					"output-folder/target-folder/xml-tag/0/repeated-tag": 1,
 				},
 			},
-			args: args {
+			args: args{
 				tag: Tag{Name: "repeated-tag"},
 			},
 			want: "output-folder/target-folder/xml-tag/0/repeated-tag.2.xml",
 		},
 		{
 			name: "new-tag",
-			fields: fields {
-				currentDirectory: []string{"output-folder","target-folder", "xml-tag", "0"},
+			fields: fields{
+				currentDirectory: []string{"output-folder", "target-folder", "xml-tag", "0"},
 				fileCounter: map[string]int{
 					"output-folder/target-folder/xml-tag/0/repeated-tag": 1,
 				},
 			},
-			args: args {
+			args: args{
 				tag: Tag{Name: "new-tag"},
 			},
 			want: "output-folder/target-folder/xml-tag/0/new-tag.0.xml",

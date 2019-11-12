@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -14,6 +16,8 @@ type processCache struct {
 	totalFiles       int
 	innerText        string
 	line             string
+	file             *os.File
+	writer           *bufio.Writer
 }
 
 func (p *processCache) newDirectory(tag Tag) string {
