@@ -35,6 +35,31 @@ type ioAction struct {
 	ready      bool
 }
 
+type ioActionWriter interface {
+	write([]ioAction) ([]ioAction, error)
+}
+
+type writer struct {}
+
+func (w *writer) write(actions []ioAction) ([]ioAction, error) {
+	for len(actions) > 0 && actions[0].ready {
+		action := actions[0]
+		switch action.actionType {
+		case writeFile:
+			if err := ioutil.WriteFile(action.path, []byte(strings.Join(action.lines, "")), 0644); err != nil {
+				return nil, err
+			}
+		case newDirectory:
+			if err := os.MkdirAll(action.path, 0755); err != nil {
+				return nil, err
+			}
+		}
+		actions = actions[1:]
+	}
+	return actions, nil
+}
+
+
 func (p *processCache) newDirectory(name string) {
 	p.currentDirectory = append(p.currentDirectory, name)
 	dirKey := strings.Join(p.currentDirectory, "/")
@@ -76,24 +101,4 @@ func (p *processCache) appendLine(line string) {
 func (p *processCache) appendFile(name, text string) {
 	p.ioActions = append(p.ioActions, ioAction{actionType: writeFile, path: strings.Join(append(p.currentDirectory, name), "/") + ".xml", ready: true, lines: []string{xml.Header + text}})
 	p.totalFiles++
-}
-
-func (p *processCache) flushIO() error {
-	for len(p.ioActions) > 0 && p.ioActions[0].ready {
-		action := p.ioActions[0]
-		if action.ready {
-			switch action.actionType {
-			case writeFile:
-				if err := ioutil.WriteFile(action.path, []byte(strings.Join(action.lines, "")), 0644); err != nil {
-					return err
-				}
-			case newDirectory:
-				if err := os.MkdirAll(action.path, 0755); err != nil {
-					return err
-				}
-			}
-			p.ioActions = p.ioActions[1:]
-		}
-	}
-	return nil
 }

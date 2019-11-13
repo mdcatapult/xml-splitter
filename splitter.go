@@ -2,12 +2,6 @@ package main
 
 import (
 	"bufio"
-	"compress/gzip"
-	"encoding/xml"
-	"errors"
-	"fmt"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -48,82 +42,13 @@ type Tag struct {
 	End   int
 }
 
-func write(data string, name string, path ...string) {
-	file := strings.Join(path, "/")
-	file = fmt.Sprintf("%s/%s.xml", file, name)
-	bytes := []byte(xml.Header + data)
-	err := ioutil.WriteFile(file, bytes, 0644)
-	handleError(err)
-}
-
 type XMLSplitter struct {
 	path string
 	conf Config
 }
 
-func (s *XMLSplitter) getLineStructure(line string) map[int]Tag {
-	lineStructure := make(map[int]Tag)
-
-	var NewTag = func(v []int, t TagType) Tag {
-		return Tag{
-			Type:  t,
-			Name:  line[v[2]:v[3]],
-			Full:  line[v[0]:v[1]],
-			Start: v[0],
-			End:   v[1],
-		}
-	}
-
-	tags := openingTag.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, Opening)
-	}
-
-	tags = closingTag.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, Closing)
-	}
-
-	tags = emptyTag.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, Empty)
-	}
-
-	tags = openTagStart.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, OpeningTagStart)
-	}
-
-	tags = openTagEnd.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, OpeningTagEnd)
-	}
-
-	return lineStructure
-}
-
-func getScanner(target string, isZipped bool) (*bufio.Scanner, error) {
-	var scanner *bufio.Scanner
-	if _, err := os.Stat(target); os.IsNotExist(err) {
-		return nil, errors.New(fmt.Sprintf("File '%s' not Found", target))
-	}
-	file, err := os.Open(target)
-	handleError(err)
-
-	if isZipped {
-		target = strings.TrimSuffix(target, filepath.Ext(target))
-		gunzip, gerr := gzip.NewReader(file)
-		handleError(gerr)
-
-		scanner = bufio.NewScanner(bufio.NewReader(gunzip))
-	} else {
-		scanner = bufio.NewScanner(file)
-	}
-
-	return scanner, nil
-}
-
-func (s *XMLSplitter) ProcessFile(scanner *bufio.Scanner) int {
+func (s *XMLSplitter) ProcessFile(scanner *bufio.Scanner, writer ioActionWriter) int {
+	var err error
 
 	// cache is used to keep track of files/folders and xml depth so we don't overwrite files.
 	cache := &processCache{
@@ -170,12 +95,12 @@ func (s *XMLSplitter) ProcessFile(scanner *bufio.Scanner) int {
 		s.processLine(line, cache)
 
 		if len(cache.ioActions) > 10 {
-			err := cache.flushIO()
+			cache.ioActions, err = writer.write(cache.ioActions)
 			handleError(err)
 		}
 	}
 
-	err := cache.flushIO()
+	cache.ioActions, err = writer.write(cache.ioActions)
 	handleError(err)
 
 	return cache.totalFiles
@@ -247,4 +172,45 @@ func (s *XMLSplitter) processLine(line string, cache *processCache) {
 
 		}
 	}
+}
+
+func (s *XMLSplitter) getLineStructure(line string) map[int]Tag {
+	lineStructure := make(map[int]Tag)
+
+	var NewTag = func(v []int, t TagType) Tag {
+		return Tag{
+			Type:  t,
+			Name:  line[v[2]:v[3]],
+			Full:  line[v[0]:v[1]],
+			Start: v[0],
+			End:   v[1],
+		}
+	}
+
+	tags := openingTag.FindAllStringSubmatchIndex(line, -1)
+	for _, tag := range tags {
+		lineStructure[tag[0]] = NewTag(tag, Opening)
+	}
+
+	tags = closingTag.FindAllStringSubmatchIndex(line, -1)
+	for _, tag := range tags {
+		lineStructure[tag[0]] = NewTag(tag, Closing)
+	}
+
+	tags = emptyTag.FindAllStringSubmatchIndex(line, -1)
+	for _, tag := range tags {
+		lineStructure[tag[0]] = NewTag(tag, Empty)
+	}
+
+	tags = openTagStart.FindAllStringSubmatchIndex(line, -1)
+	for _, tag := range tags {
+		lineStructure[tag[0]] = NewTag(tag, OpeningTagStart)
+	}
+
+	tags = openTagEnd.FindAllStringSubmatchIndex(line, -1)
+	for _, tag := range tags {
+		lineStructure[tag[0]] = NewTag(tag, OpeningTagEnd)
+	}
+
+	return lineStructure
 }

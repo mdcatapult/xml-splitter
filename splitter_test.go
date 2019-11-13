@@ -1,30 +1,15 @@
 package main
 
 import (
-	"io"
+	"bufio"
+	"encoding/xml"
+	"github.com/stretchr/testify/mock"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
 )
-
-type mockFile struct {
-	data string
-	done bool
-}
-
-func (m *mockFile) Read(bytes []byte) (int, error) {
-	copy(bytes, m.data)
-	if m.done {
-		return 0, io.EOF
-	}
-	m.done = true
-	return len(m.data), nil
-}
-
-func (m *mockFile) Write(bytes []byte) (int, error) {
-	return len(bytes), nil
-}
 
 type SplitterSuite struct {
 	suite.Suite
@@ -89,5 +74,83 @@ func (s *SplitterSuite) TestGetLineStructure() {
 }
 
 func (s *SplitterSuite) TestProcessFile() {
+	reader := &mockReader{data: `<uniprot xmlns="http://uniprot.org/uniprot"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd">
+  <entry>  <accession>Q6GZX4</accession>  <name>001R_FRG3G</name>  <protein>    <recommendedName>      <fullName>Putative transcription factor 001R</fullName>    </recommendedName>  </protein></entry>
+  <entry>  <accession>Q6GZX4</accession>  <name>001R_FRG3G</name>  <protein>    <recommendedName>      <fullName>Putative transcription factor 001R</fullName>    </recommendedName>  </protein></entry>
+</uniprot>`}
+	reader.On("Read", mock.Anything)
+	config := Config{
+		out: "out",
+		skip: regexp.MustCompile(defaultSkip),
+		strip: regexp.MustCompile(""),
+		depth: 1,
+	}
+	splitter := XMLSplitter{path: "sprot", conf: config}
+	writer := &mockWriter{}
+	writer.On("write", []ioAction{
+		{
+			actionType: newDirectory,
+			path: "out/sprot/uniprot/0",
+			ready: true,
+		},
+		{
+			actionType: writeFile,
+			path: "out/sprot/uniprot/0/root.xml",
+			lines: []string{xml.Header + `<uniprot xmlns="http://uniprot.org/uniprot"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd">`},
+			ready: true,
+		},
+		{
+			actionType: writeFile,
+			path: "out/sprot/uniprot/0/entry.0.xml",
+			lines: []string{
+				xml.Header,
+				"<entry>",
+				"<accession>",
+				"Q6GZX4",
+				"</accession>",
+				"<name>",
+				"001R_FRG3G",
+				"</name>",
+				"<protein>",
+				"<recommendedName>",
+				"<fullName>",
+				"Putative transcription factor 001R",
+				"</fullName>",
+				"</recommendedName>",
+				"</protein>",
+				"</entry>",
+			},
+			ready: true,
+		},
+		{
+			actionType: writeFile,
+			path: "out/sprot/uniprot/0/entry.1.xml",
+			lines: []string{
+				xml.Header,
+				"<entry>",
+				"<accession>",
+				"Q6GZX4",
+				"</accession>",
+				"<name>",
+				"001R_FRG3G",
+				"</name>",
+				"<protein>",
+				"<recommendedName>",
+				"<fullName>",
+				"Putative transcription factor 001R",
+				"</fullName>",
+				"</recommendedName>",
+				"</protein>",
+				"</entry>",
+			},
+			ready: true,
+		},
+	}).Return([]ioAction{}, nil)
+	totalFiles := splitter.ProcessFile(bufio.NewScanner(reader), writer)
 
+	s.Assert().Equal(3, totalFiles)
+	reader.AssertNumberOfCalls(s.T(), "Read", 2)
+	writer.AssertNumberOfCalls(s.T(), "write", 1)
 }
