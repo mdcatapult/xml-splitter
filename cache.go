@@ -31,7 +31,7 @@ const (
 type ioAction struct {
 	actionType ioActionType
 	path string
-	text string
+	lines []string
 	ready bool
 }
 
@@ -59,7 +59,7 @@ func (p *processCache) openFile(prefix string) {
 	} else {
 		p.fileCounter[filekey] = 0
 	}
-	p.ioActions = append(p.ioActions, ioAction{actionType: writeFile, path: fmt.Sprintf("%s.%d.xml", filekey, p.fileCounter[filekey]), text: xml.Header})
+	p.ioActions = append(p.ioActions, ioAction{actionType: writeFile, path: fmt.Sprintf("%s.%d.xml", filekey, p.fileCounter[filekey]), lines: []string{xml.Header}})
 	p.file = true
 	p.totalFiles++
 }
@@ -70,11 +70,11 @@ func (p *processCache) closeFile() {
 }
 
 func (p *processCache) appendLine(line string) {
-	p.ioActions[len(p.ioActions)-1].text += line
+	p.ioActions[len(p.ioActions)-1].lines = append(p.ioActions[len(p.ioActions)-1].lines, line)
 }
 
 func (p *processCache) appendFile(name, text string) {
-	p.ioActions = append(p.ioActions, ioAction{actionType: writeFile, path: strings.Join(append(p.currentDirectory, name), "/") + ".xml", ready: true, text: xml.Header + text})
+	p.ioActions = append(p.ioActions, ioAction{actionType: writeFile, path: strings.Join(append(p.currentDirectory, name), "/") + ".xml", ready: true, lines: []string{xml.Header + text}})
 	p.totalFiles++
 }
 
@@ -84,7 +84,7 @@ func (p *processCache) flushIO() error {
 		if action.ready {
 			switch action.actionType {
 			case writeFile:
-				if err := ioutil.WriteFile(action.path, []byte(action.text), 0644); err != nil {
+				if err := ioutil.WriteFile(action.path, []byte(strings.Join(action.lines, "")), 0644); err != nil {
 					return err
 				}
 			case newDirectory:
