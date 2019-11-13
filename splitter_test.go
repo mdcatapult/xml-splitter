@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/stretchr/testify/suite"
 	"io"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/suite"
 )
 
 type mockFile struct {

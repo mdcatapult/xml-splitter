@@ -18,7 +18,7 @@ type processCache struct {
 	innerText        string
 	line             string
 	file             bool
-	ioActions []ioAction
+	ioActions        []ioAction
 }
 
 type ioActionType int
@@ -30,9 +30,9 @@ const (
 
 type ioAction struct {
 	actionType ioActionType
-	path string
-	lines []string
-	ready bool
+	path       string
+	lines      []string
+	ready      bool
 }
 
 func (p *processCache) newDirectory(name string) {
