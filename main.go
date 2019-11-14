@@ -1,13 +1,10 @@
 package main
 
 import (
-	"bufio"
-	"compress/gzip"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -53,27 +50,6 @@ func handleError(err error) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func getScanner(target string, isZipped bool) (*bufio.Scanner, error) {
-	var scanner *bufio.Scanner
-	if _, err := os.Stat(target); os.IsNotExist(err) {
-		return nil, errors.New(fmt.Sprintf("File '%s' not Found", target))
-	}
-	file, err := os.Open(target)
-	handleError(err)
-
-	if isZipped {
-		target = strings.TrimSuffix(target, filepath.Ext(target))
-		gunzip, gerr := gzip.NewReader(file)
-		handleError(gerr)
-
-		scanner = bufio.NewScanner(bufio.NewReader(gunzip))
-	} else {
-		scanner = bufio.NewScanner(file)
-	}
-
-	return scanner, nil
 }
 
 func main() {

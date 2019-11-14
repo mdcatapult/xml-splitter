@@ -19,10 +19,10 @@ func (s *CacheSuite) TestNewDirectory() {
 		name string
 	}
 	tests := []struct {
-		name   string
+		name  string
 		cache *processCache
-		args   args
-		want *processCache
+		args  args
+		want  *processCache
 	}{
 		{
 			name: "XML root",
@@ -79,7 +79,7 @@ func (s *CacheSuite) TestNewDirectory() {
 				currentDirectory: []string{"output-folder", "target-folder", "xml-tag", "0", "new-tag", "0"},
 				directoryCounter: map[string]int{
 					"output-folder/target-folder/xml-tag/0/repeated-tag": 1,
-					"output-folder/target-folder/xml-tag/0/new-tag": 0,
+					"output-folder/target-folder/xml-tag/0/new-tag":      0,
 				},
 				ioActions: []ioAction{
 					{actionType: newDirectory, path: "output-folder/target-folder/xml-tag/0/new-tag/0", ready: true},
@@ -99,8 +99,8 @@ func (s *CacheSuite) TestNewFile() {
 	}
 	tests := []struct {
 		cache *processCache
-		args   args
-		want   *processCache
+		args  args
+		want  *processCache
 	}{
 		{
 			cache: &processCache{
@@ -121,7 +121,7 @@ func (s *CacheSuite) TestNewFile() {
 					{actionType: writeFile, path: "output-folder/target-folder/xml-tag/0/repeated-tag.2.xml", lines: []string{xml.Header}},
 				},
 				totalFiles: 1,
-				file: true,
+				file:       true,
 			},
 		},
 		{
@@ -138,13 +138,13 @@ func (s *CacheSuite) TestNewFile() {
 				currentDirectory: []string{"output-folder", "target-folder", "xml-tag", "0"},
 				fileCounter: map[string]int{
 					"output-folder/target-folder/xml-tag/0/repeated-tag": 1,
-					"output-folder/target-folder/xml-tag/0/new-tag": 0,
+					"output-folder/target-folder/xml-tag/0/new-tag":      0,
 				},
 				ioActions: []ioAction{
 					{actionType: writeFile, path: "output-folder/target-folder/xml-tag/0/new-tag.0.xml", lines: []string{xml.Header}},
 				},
 				totalFiles: 1,
-				file: true,
+				file:       true,
 			},
 		},
 	}
@@ -157,7 +157,7 @@ func (s *CacheSuite) TestNewFile() {
 func (s *CacheSuite) TestExitDirectory() {
 	tests := []struct {
 		cache *processCache
-		want   *processCache
+		want  *processCache
 	}{
 		{
 			cache: &processCache{
@@ -177,7 +177,7 @@ func (s *CacheSuite) TestExitDirectory() {
 func (s *CacheSuite) TestCloseFile() {
 	tests := []struct {
 		cache *processCache
-		want   *processCache
+		want  *processCache
 	}{
 		{
 			cache: &processCache{
@@ -205,12 +205,12 @@ func (s *CacheSuite) TestAppendLine() {
 		line string
 	}
 	tests := []struct {
-		args args
+		args  args
 		cache *processCache
-		want   *processCache
+		want  *processCache
 	}{
 		{
-			args: args {
+			args: args{
 				line: "this is a new line",
 			},
 			cache: &processCache{
@@ -239,12 +239,12 @@ func (s *CacheSuite) TestAppendFile() {
 		text string
 	}
 	tests := []struct {
-		args args
+		args  args
 		cache *processCache
-		want   *processCache
+		want  *processCache
 	}{
 		{
-			args: args {
+			args: args{
 				name: "filename",
 				text: "text for new file",
 			},

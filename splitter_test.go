@@ -26,12 +26,10 @@ func (s *SplitterSuite) TestGetLineStructure() {
 		line string
 	}
 	tests := []struct {
-		name string
 		args args
 		want map[int]Tag
 	}{
 		{
-			name: "Happy path",
 			args: args{
 				line: `<Opening><Empty />Some text in here for posterity.<OpeningWithAttributes time="1 o'clock" date="Wednesday 6th November"></ Closing>`,
 			},
@@ -67,8 +65,7 @@ func (s *SplitterSuite) TestGetLineStructure() {
 			},
 		},
 	}
-	for i, tt := range tests {
-		s.T().Logf("Test get line structure: %s, case %d", tt.name, i)
+	for _, tt := range tests {
 		s.Assert().Equal(tt.want, s.splitter.getLineStructure(tt.args.line))
 	}
 }
@@ -82,8 +79,8 @@ func (s *SplitterSuite) TestProcessFile() {
 </uniprot>`}
 	reader.On("Read", mock.Anything)
 	config := Config{
-		out: "out",
-		skip: regexp.MustCompile(defaultSkip),
+		out:   "out",
+		skip:  regexp.MustCompile(defaultSkip),
 		strip: regexp.MustCompile(""),
 		depth: 1,
 	}
@@ -92,18 +89,18 @@ func (s *SplitterSuite) TestProcessFile() {
 	writer.On("write", []ioAction{
 		{
 			actionType: newDirectory,
-			path: "out/sprot/uniprot/0",
-			ready: true,
+			path:       "out/sprot/uniprot/0",
+			ready:      true,
 		},
 		{
 			actionType: writeFile,
-			path: "out/sprot/uniprot/0/root.xml",
-			lines: []string{xml.Header + `<uniprot xmlns="http://uniprot.org/uniprot"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd"/>`},
-			ready: true,
+			path:       "out/sprot/uniprot/0/root.xml",
+			lines:      []string{xml.Header + `<uniprot xmlns="http://uniprot.org/uniprot"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd"/>`},
+			ready:      true,
 		},
 		{
 			actionType: writeFile,
-			path: "out/sprot/uniprot/0/entry.0.xml",
+			path:       "out/sprot/uniprot/0/entry.0.xml",
 			lines: []string{
 				xml.Header,
 				"<entry>",
@@ -126,7 +123,7 @@ func (s *SplitterSuite) TestProcessFile() {
 		},
 		{
 			actionType: writeFile,
-			path: "out/sprot/uniprot/0/entry.1.xml",
+			path:       "out/sprot/uniprot/0/entry.1.xml",
 			lines: []string{
 				xml.Header,
 				"<entry>",

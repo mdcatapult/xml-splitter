@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -20,45 +18,6 @@ type processCache struct {
 	file             bool
 	ioActions        []ioAction
 }
-
-type ioActionType int
-
-const (
-	writeFile ioActionType = iota
-	newDirectory
-)
-
-type ioAction struct {
-	actionType ioActionType
-	path       string
-	lines      []string
-	ready      bool
-}
-
-type ioActionWriter interface {
-	write([]ioAction) ([]ioAction, error)
-}
-
-type writer struct {}
-
-func (w *writer) write(actions []ioAction) ([]ioAction, error) {
-	for len(actions) > 0 && actions[0].ready {
-		action := actions[0]
-		switch action.actionType {
-		case writeFile:
-			if err := ioutil.WriteFile(action.path, []byte(strings.Join(action.lines, "")), 0644); err != nil {
-				return nil, err
-			}
-		case newDirectory:
-			if err := os.MkdirAll(action.path, 0755); err != nil {
-				return nil, err
-			}
-		}
-		actions = actions[1:]
-	}
-	return actions, nil
-}
-
 
 func (p *processCache) newDirectory(name string) {
 	p.currentDirectory = append(p.currentDirectory, name)
