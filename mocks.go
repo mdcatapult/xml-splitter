@@ -12,7 +12,7 @@ type mockReader struct {
 }
 
 func (m *mockReader) Read(bytes []byte) (int, error) {
-	m.Called()
+	m.Called(bytes)
 	copy(bytes, m.data)
 	if m.done {
 		return 0, io.EOF
@@ -26,7 +26,7 @@ type mockWriter struct {
 }
 
 func (m *mockWriter) write(actions []ioAction) ([]ioAction, error) {
-	args := m.Called()
+	args := m.Called(actions)
 	for len(actions) > 0 && actions[0].ready {
 		actions = actions[1:]
 	}

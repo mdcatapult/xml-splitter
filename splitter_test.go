@@ -98,7 +98,7 @@ func (s *SplitterSuite) TestProcessFile() {
 		{
 			actionType: writeFile,
 			path: "out/sprot/uniprot/0/root.xml",
-			lines: []string{xml.Header + `<uniprot xmlns="http://uniprot.org/uniprot"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd">`},
+			lines: []string{xml.Header + `<uniprot xmlns="http://uniprot.org/uniprot"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd"/>`},
 			ready: true,
 		},
 		{
