@@ -18,6 +18,7 @@ type Config struct {
 	skip  *regexp.Regexp
 	strip *regexp.Regexp
 	depth int
+	buffer int
 }
 
 func GetConfig() (Config, error) {
@@ -30,6 +31,7 @@ func GetConfig() (Config, error) {
 	flag.IntVar(&c.files, "files", 1, "number of files to process concurrently")
 	flag.StringVar(&skip, "skip", defaultSkip, "regex for lines that should be skipped")
 	flag.StringVar(&strip, "strip", "", "regex of values to trim from lines")
+	flag.IntVar(&c.buffer, "buffer", 20, "max files to hold in buffer before writing")
 	flag.Parse()
 	if len(in) == 0 || len(out) == 0 {
 		flag.PrintDefaults()

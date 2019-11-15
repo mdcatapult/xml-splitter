@@ -30,8 +30,6 @@ const (
 	Opening TagType = iota
 	Closing
 	Empty
-	OpeningTagStart
-	OpeningTagEnd
 )
 
 type Tag struct {
@@ -94,7 +92,7 @@ func (s *XMLSplitter) ProcessFile(scanner *bufio.Scanner, writer ioActionWriter)
 
 		s.processLine(line, cache)
 
-		if len(cache.ioActions) > 10 {
+		if len(cache.ioActions) > s.conf.buffer {
 			cache.ioActions, err = writer.write(cache.ioActions)
 			handleError(err)
 		}
@@ -177,39 +175,26 @@ func (s *XMLSplitter) processLine(line string, cache *processCache) {
 func (s *XMLSplitter) getLineStructure(line string) map[int]Tag {
 	lineStructure := make(map[int]Tag)
 
-	var NewTag = func(v []int, t TagType) Tag {
-		return Tag{
-			Type:  t,
-			Name:  line[v[2]:v[3]],
-			Full:  line[v[0]:v[1]],
-			Start: v[0],
-			End:   v[1],
+	args := []struct{
+		regex *regexp.Regexp
+		tagType TagType
+	}{
+		{openingTag, Opening},
+		{closingTag, Closing},
+		{emptyTag, Empty},
+	}
+
+	for _, arg := range args {
+		tags := arg.regex.FindAllStringSubmatchIndex(line, -1)
+		for _, tag := range tags {
+			lineStructure[tag[0]] = Tag{
+				Type:  arg.tagType,
+				Name:  line[tag[2]:tag[3]],
+				Full:  line[tag[0]:tag[1]],
+				Start: tag[0],
+				End:   tag[1],
+			}
 		}
-	}
-
-	tags := openingTag.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, Opening)
-	}
-
-	tags = closingTag.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, Closing)
-	}
-
-	tags = emptyTag.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, Empty)
-	}
-
-	tags = openTagStart.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, OpeningTagStart)
-	}
-
-	tags = openTagEnd.FindAllStringSubmatchIndex(line, -1)
-	for _, tag := range tags {
-		lineStructure[tag[0]] = NewTag(tag, OpeningTagEnd)
 	}
 
 	return lineStructure

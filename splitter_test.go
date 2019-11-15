@@ -83,6 +83,7 @@ func (s *SplitterSuite) TestProcessFile() {
 		skip:  regexp.MustCompile(defaultSkip),
 		strip: regexp.MustCompile(""),
 		depth: 1,
+		buffer: 20,
 	}
 	splitter := XMLSplitter{path: "sprot", conf: config}
 	writer := &mockWriter{}
