@@ -26,12 +26,12 @@ func GetConfig() (Config, error) {
 	var skip, strip, in, out string
 	flag.StringVar(&in, "in", "", "the folder to process (glob)")
 	flag.StringVar(&out, "out", "", "the folder output to")
-	flag.IntVar(&c.depth, "depth", 1, "The nesting depth at which to split the XML")
+	flag.IntVar(&c.depth, "depth", 1, "the nesting depth at which to split the XML")
 	flag.BoolVar(&c.gzip, "gzip", false, "use gzip to decompress files")
 	flag.IntVar(&c.files, "files", 1, "number of files to process concurrently")
 	flag.StringVar(&skip, "skip", defaultSkip, "regex for lines that should be skipped")
 	flag.StringVar(&strip, "strip", "", "regex of values to trim from lines")
-	flag.IntVar(&c.buffer, "buffer", 20, "max files to hold in buffer before writing")
+	flag.IntVar(&c.buffer, "buffer", 20, "max number of files to hold in buffer before writing")
 	flag.Parse()
 	if len(in) == 0 || len(out) == 0 {
 		flag.PrintDefaults()

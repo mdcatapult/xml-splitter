@@ -9,8 +9,10 @@ xml-splitter -in in/ -out out/ -strip "</{0,1}PMCSet>"
 
 
 Usage of ./xml-splitter:
+  -buffer int
+        max number of files to hold in buffer before writing (default 20)
   -depth int
-        The nesting depth at which to split the XML (default 1)
+        the nesting depth at which to split the XML (default 1)
   -files int
         number of files to process concurrently (default 1)
   -gzip
