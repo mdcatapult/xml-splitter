@@ -24,7 +24,7 @@ Usage of ./xml-splitter:
   -skip string
         regex for lines that should be skipped (default "(<\\?xml)|(<!DOCTYPE)")
   -strip string
-        regex of values to trim from lines
+        regex of values to strip from lines
 ```
 
 ## License
