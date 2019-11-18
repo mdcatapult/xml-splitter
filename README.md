@@ -5,12 +5,14 @@ A small utility to help with splitting large xml files into smaller files. Utili
 ## Usage
 
 ```bash
-xml-splitter -in in/ -out out/ -split "</Entry>" -strip "</{0,1}PMCSet>"
+xml-splitter -in in/ -out out/ -strip "</{0,1}PMCSet>"
 
 
 Usage of ./xml-splitter:
-  -ext string
-        file extension to process (default "xml")
+  -buffer int
+        max number of files to hold in buffer before writing (default 20)
+  -depth int
+        the nesting depth at which to split the XML (default 1)
   -files int
         number of files to process concurrently (default 1)
   -gzip
@@ -20,9 +22,7 @@ Usage of ./xml-splitter:
   -out string
         the folder output to
   -skip string
-        regex for lines that should be skipped (default "(<?xml)|(<!DOCTYPE)")
-  -split string
-        The XML closing tag to split after i.e. '</Entry>'
+        regex for lines that should be skipped (default "(<\\?xml)|(<!DOCTYPE)")
   -strip string
         regex of values to strip from lines
 ```
