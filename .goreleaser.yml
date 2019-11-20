@@ -1,3 +1,7 @@
+gitlab_urls:
+  api: https://gitlab.mdcatapult.io/api/v4
+  download: https://gitlab.mdcatapult.io
+  skip_tls_verify: false
 builds:
 - env:
   - CGO_ENABLED=0
