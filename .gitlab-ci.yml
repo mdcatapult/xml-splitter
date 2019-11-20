@@ -2,7 +2,7 @@ services:
   - docker:dind
 
 variables:
-  - GITLAB_TOKEN: $GIT_RELEASE_TOKEN
+  GITLAB_TOKEN: $GIT_RELEASE_TOKEN
 
 stages:
   - test
