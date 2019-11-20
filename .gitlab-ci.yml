@@ -1,9 +1,6 @@
 services:
   - docker:dind
 
-variables:
-  GITLAB_TOKEN: $GIT_RELEASE_TOKEN
-
 stages:
   - test
   - build
@@ -19,4 +16,4 @@ build:
   stage: build
   script:
     - docker pull goreleaser/goreleaser:latest
-    - docker run --rm --privileged -v $PWD:/go/src/gitlab.mdcatapult.io/software-engineering/xml-splitter -v /var/run/docker.sock:/var/run/docker.sock -w /go/src/gitlab.mdcatapult.io/software-engineering/xml-splitter -e GITLAB_TOKEN goreleaser/goreleaser:latest release --rm-dist
+    - docker run --rm --privileged -v $PWD:/go/src/gitlab.mdcatapult.io/software-engineering/xml-splitter -v /var/run/docker.sock:/var/run/docker.sock -w /go/src/gitlab.mdcatapult.io/software-engineering/xml-splitter -e GITLAB_TOKEN=$GIT_RELEASE_TOKEN goreleaser/goreleaser:latest release --rm-dist
