@@ -28,7 +28,7 @@ func GetConfig() (Config, error) {
 	flag.IntVar(&c.depth, "depth", 1, "the nesting depth at which to split the XML")
 	flag.IntVar(&c.files, "files", 1, "number of files to process concurrently")
 	flag.StringVar(&skip, "skip", defaultSkip, "regex for lines that should be skipped")
-	flag.StringVar(&strip, "strip", "", "regex of values to main from lines")
+	flag.StringVar(&strip, "strip", "", "regex of values to strip from lines")
 	flag.IntVar(&c.buffer, "buffer", 20, "max number of files to hold in buffer before writing")
 	flag.Parse()
 	if len(in) == 0 || len(out) == 0 {
