@@ -1,6 +1,9 @@
 # Xml Splitter
 
-A small utility to help with splitting large xml files into smaller files. Utilises Regex to facilitate cleanup and splitting
+A small utility to help with splitting large xml files into smaller files. 
+Utilises Regex to facilitate cleanup and splitting.
+
+The splitter automatically handles `.gz` files but does not handle other forms of compression.
 
 ## Usage
 
@@ -15,8 +18,6 @@ Usage of ./xml-splitter:
         the nesting depth at which to split the XML (default 1)
   -files int
         number of files to process concurrently (default 1)
-  -gzip
-        use gzip to decompress files
   -in string
         the folder to process (glob)
   -out string
