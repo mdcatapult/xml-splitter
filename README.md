@@ -15,8 +15,6 @@ Usage of ./xml-splitter:
         the nesting depth at which to split the XML (default 1)
   -files int
         number of files to process concurrently (default 1)
-  -gzip
-        use gzip to decompress files
   -in string
         the folder to process (glob)
   -out string
@@ -24,7 +22,7 @@ Usage of ./xml-splitter:
   -skip string
         regex for lines that should be skipped (default "(<\\?xml)|(<!DOCTYPE)")
   -strip string
-        regex of values to strip from lines
+        regex of values to main from lines
 ```
 
 ## License

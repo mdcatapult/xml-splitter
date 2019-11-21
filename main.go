@@ -13,7 +13,6 @@ import (
 type Config struct {
 	in    string
 	out   string
-	gzip  bool
 	files int
 	skip  *regexp.Regexp
 	strip *regexp.Regexp
@@ -27,7 +26,6 @@ func GetConfig() (Config, error) {
 	flag.StringVar(&in, "in", "", "the folder to process (glob)")
 	flag.StringVar(&out, "out", "", "the folder output to")
 	flag.IntVar(&c.depth, "depth", 1, "the nesting depth at which to split the XML")
-	flag.BoolVar(&c.gzip, "gzip", false, "use gzip to decompress files")
 	flag.IntVar(&c.files, "files", 1, "number of files to process concurrently")
 	flag.StringVar(&skip, "skip", defaultSkip, "regex for lines that should be skipped")
 	flag.StringVar(&strip, "strip", "", "regex of values to main from lines")
@@ -60,7 +58,7 @@ func main() {
 		return
 	}
 
-	path := fmt.Sprintf("%s/*.xml", config.in)
+	path := fmt.Sprintf("%s/*.xml*", config.in)
 	files, err := filepath.Glob(path)
 	if err != nil {
 		log.Panic(err)
@@ -71,7 +69,7 @@ func main() {
 		fileSem <- true
 		go func() {
 			s := XMLSplitter{path: path, conf: config}
-			scanner, err := getScanner(s.path, s.conf.gzip)
+			scanner, err := getScanner(s.path, strings.HasSuffix(s.path, ".gz"))
 			handleError(err)
 			filesCreated := s.ProcessFile(scanner, &writer{})
 			fmt.Println(fmt.Sprintf("%d files generated from %s", filesCreated, path))
