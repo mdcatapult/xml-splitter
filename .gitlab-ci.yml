@@ -1,9 +1,21 @@
-image: golang:1.13
+services:
+  - docker:dind
 
 stages:
   - test
+  - build
 
 test:
+  image: golang:1.13
   stage: test
   script: 
     - go test ./...
+
+build:
+  image: docker:stable
+  stage: build
+  script:
+    - docker pull goreleaser/goreleaser:latest
+    - docker run --rm --privileged -v $PWD:/go/src/gitlab.mdcatapult.io/software-engineering/xml-splitter -v /var/run/docker.sock:/var/run/docker.sock -w /go/src/gitlab.mdcatapult.io/software-engineering/xml-splitter -e GITLAB_TOKEN=$GIT_RELEASE_TOKEN goreleaser/goreleaser:latest release --rm-dist
+  only:
+    - tags
