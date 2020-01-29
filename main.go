@@ -52,18 +52,29 @@ func handleError(err error) {
 	}
 }
 
+func getFiles(directory string) []string {
+	var files []string
+	path := fmt.Sprintf("%s/*.xml*", directory)
+	xmlfiles, err := filepath.Glob(path)
+	if err != nil {
+		log.Panic(err)
+	}
+	path = fmt.Sprintf("%s/*.owl*", directory)
+	owlfiles, err := filepath.Glob(path)
+	if err != nil {
+		log.Panic(err)
+	}
+	files = append(xmlfiles, owlfiles...)
+	return files
+}
+
 func main() {
 	config, err := GetConfig()
 	if err != nil {
 		return
 	}
 
-	path := fmt.Sprintf("%s/*.xml*", config.in)
-	files, err := filepath.Glob(path)
-	if err != nil {
-		log.Panic(err)
-	}
-
+	files := getFiles(config.in)
 	fileSem := make(chan bool, config.files)
 	for _, path := range files {
 		fileSem <- true
