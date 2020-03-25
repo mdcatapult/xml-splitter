@@ -1,4 +1,8 @@
 project_name: xml-splitter
+release:
+  gitlab:
+    owner: informatics/software-engineering
+    name: xml-splitter
 gitlab_urls:
   api: https://gitlab.mdcatapult.io/api/v4
   download: https://gitlab.mdcatapult.io
