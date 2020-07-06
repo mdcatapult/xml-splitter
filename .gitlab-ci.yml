@@ -1,21 +1,45 @@
-services:
-  - docker:dind
-
 stages:
   - test
-  - build
+  - version
+  - release
+
+default:
+  image: registry.mdcatapult.io/informatics/docker-images/ci:golang-v1.0.1
+
+lint:
+  stage: test
+  script:
+    - go vet ./...
+    - golangci-lint run
 
 test:
-  image: golang:1.13
   stage: test
   script: 
-    - go test ./...
+    - go test ./... -coverpkg=./... -coverprofile=cover.out
+    - go tool cover -func cover.out
+  coverage: /total:\s+\(statements\)\s+(\d+.\d+\%)/
 
-build:
-  image: docker:stable
-  stage: build
+release:
+  stage: release
   script:
-    - docker pull goreleaser/goreleaser:latest
-    - docker run --rm --privileged -v $PWD:/go/src/gitlab.mdcatapult.io/software-engineering/xml-splitter -v /var/run/docker.sock:/var/run/docker.sock -w /go/src/gitlab.mdcatapult.io/software-engineering/xml-splitter -e GITLAB_TOKEN=$GIT_RELEASE_TOKEN goreleaser/goreleaser:latest release --rm-dist
+    - export GITLAB_TOKEN=$GIT_RELEASE_TOKEN
+    - goreleaser release --rm-dist
   only:
-    - tags
+    refs:
+      - tags
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/
+
+version:
+  stage: release
+  script:
+    - . /scripts/utils.sh
+    - . /scripts/setup-git.sh
+    - . /scripts/export-env.sh --branches --rebase develop
+    - . /scripts/version.sh
+    - . /scripts/rebase.sh
+  only:
+    - master
+  except:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /^Setting version to.*/

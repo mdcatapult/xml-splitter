@@ -78,14 +78,14 @@ func main() {
 	fileSem := make(chan bool, config.files)
 	for _, path := range files {
 		fileSem <- true
-		go func() {
+		go func(path string) {
 			s := XMLSplitter{path: path, conf: config}
 			scanner, err := getScanner(s.path, strings.HasSuffix(s.path, ".gz"))
 			handleError(err)
 			filesCreated := s.ProcessFile(scanner, &writer{})
-			fmt.Println(fmt.Sprintf("%d files generated from %s", filesCreated, path))
+			fmt.Printf("%d files generated from %s\n", filesCreated, path)
 			<-fileSem
-		}()
+		}(path)
 	}
 	for i := 0; i < cap(fileSem); i++ {
 		fileSem <- true

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/xml"
 	"github.com/stretchr/testify/mock"
-	"os"
 	"regexp"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 type SplitterSuite struct {
 	suite.Suite
 	splitter XMLSplitter
-	file     os.File
 }
 
 func TestSplitterSuite(t *testing.T) {
