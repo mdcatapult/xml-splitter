@@ -8,12 +8,16 @@ default:
 
 lint:
   stage: test
+  tags:
+    - wopr
   script:
     - go vet ./...
     - golangci-lint run
 
 test:
   stage: test
+  tags:
+    - wopr
   script: 
     - go test ./... -coverpkg=./... -coverprofile=cover.out
     - go tool cover -func cover.out
@@ -21,6 +25,8 @@ test:
 
 release:
   stage: release
+  tags:
+    - wopr
   script:
     - export GITLAB_TOKEN=$GIT_RELEASE_TOKEN
     - goreleaser release --rm-dist
@@ -32,6 +38,8 @@ release:
 
 version:
   stage: release
+  tags:
+    - wopr
   script:
     - . /scripts/utils.sh
     - . /scripts/setup-git.sh
