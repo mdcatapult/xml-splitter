@@ -4,7 +4,7 @@ stages:
   - release
 
 default:
-  image: registry.mdcatapult.io/informatics/docker-images/ci:golang-v1.0.1
+  image: registry.mdcatapult.io/informatics/docker-images/ci:golang-v1.1.0
 
 lint:
   stage: test
@@ -41,11 +41,7 @@ version:
   tags:
     - wopr
   script:
-    - . /scripts/utils.sh
-    - . /scripts/setup-git.sh
-    - . /scripts/export-env.sh --branches --rebase develop
-    - . /scripts/version.sh
-    - . /scripts/rebase.sh
+    - /scripts/release.sh -N -b -r develop
   only:
     - master
   except:
