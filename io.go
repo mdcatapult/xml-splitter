@@ -3,11 +3,9 @@ package main
 import (
 	"bufio"
 	"compress/gzip"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -52,13 +50,12 @@ func (w *writer) write(actions []ioAction) ([]ioAction, error) {
 func getScanner(target string, isZipped bool) (*bufio.Scanner, error) {
 	var scanner *bufio.Scanner
 	if _, err := os.Stat(target); os.IsNotExist(err) {
-		return nil, errors.New(fmt.Sprintf("File '%s' not Found", target))
+		return nil, fmt.Errorf("File '%s' not Found", target)
 	}
 	file, err := os.Open(target)
 	handleError(err)
 
 	if isZipped {
-		target = strings.TrimSuffix(target, filepath.Ext(target))
 		gunzip, gerr := gzip.NewReader(file)
 		handleError(gerr)
 
